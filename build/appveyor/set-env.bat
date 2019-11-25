@@ -35,6 +35,7 @@ set "INCLUDE=%MS_SDK_DIR%\include;%INCLUDE%"
 set "INCLUDE=%MS_VS_DIR%\VC\include;%INCLUDE%"
 
 echo -------------------------------------
+echo REPO_BRANCH:       %APPVEYOR_REPO_BRANCH%
 echo TOOLCHAIN:         %TOOLCHAIN%
 echo CONFIGURATION:     %CONFIGURATION%
 echo PAXZ_VERSION:      %PAXZ_VERSION%
