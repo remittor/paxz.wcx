@@ -36,6 +36,7 @@ public:
   int extract_pax(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile);
   int extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile);
   int extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile);
+  int extract_dir();  /* !!! mega hack !!! */
 
   wcx::cfg       m_cfg;
   DWORD          m_thread_id;
@@ -47,7 +48,9 @@ public:
   bool           m_delete_out_file;
   wcx::cache   * m_cache;
   cache_enum     m_cenum;
+  cache_item   * m_cur_dir;
   cache_item   * m_cur_file;
+  bst::filepath  m_dst_dir;
   bst::buf       m_buf;
   bst::buf       m_dst;
   bst::buf       m_in_buf;

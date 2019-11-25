@@ -11,6 +11,7 @@ archive::archive()
   m_open_mode = 0;
   m_file = NULL;
   m_cache = NULL;
+  m_cur_dir = NULL;
   m_cur_file = NULL;
 }
 
@@ -109,6 +110,7 @@ int archive::list(tHeaderDataExW * hdr)
   if (!ci) {
     LOGi("%s: <<<END OF FILE LIST>>> (file count = %I64d) ", __func__, get_file_count());
     m_cenum.reset();
+    m_dst_dir.clear();
     FIN(E_END_ARCHIVE);
   }
 
@@ -127,7 +129,11 @@ int archive::list(tHeaderDataExW * hdr)
   if (ci->pax.realsize > ci->data_size)
     hdr->UnpSize = ci->pax.realsize;
   if (m_open_mode == PK_OM_EXTRACT) {
-    m_cur_file = ci;
+    if (ci->attr & FILE_ATTRIBUTE_DIRECTORY) {
+      m_cur_dir = ci;
+    } else {
+      m_cur_file = ci;
+    }
   }
   hr = 0;
 
@@ -145,11 +151,27 @@ int archive::extract(int Operation, LPCWSTR DestPath, LPCWSTR DestName)
   m_delete_out_file = false;
   
   if (Operation == PK_SKIP) {
-    //WLOGd(L"%S(%d): '%s' <<<SKIP FILE>>> Dest = \"%s\" \"%s\" ", __func__, Operation, get_name(), DestPath, DestName);
+    if (m_cur_dir && m_dst_dir.length()) {
+      extract_dir();  /* !!! mega hack !!! */
+    } else {
+      //WLOGd(L"%S(%d): '%s' <<<SKIP FILE>>> Dest = \"%s\" \"%s\" ", __func__, Operation, get_name(), DestPath, DestName);
+    }
     FIN(0);
   }
   WLOGd(L"%S(%d): '%s' Dest = \"%s\" \"%s\" ", __func__, Operation, get_name(), DestPath, DestName);
   
+  if (m_dst_dir.empty() && DestName && m_cur_file) {
+    size_t nlen = wcslen(DestName);
+    if (m_cur_file->name_len < nlen) {
+      size_t dlen = nlen - m_cur_file->name_len;
+      LPCWSTR name = DestName + dlen;
+      if (_wcsicmp(name, m_cur_file->name) == 0) {
+        m_dst_dir.assign(DestName, dlen);
+        FIN_IF(m_dst_dir.length() != dlen, 0x189000 | E_NO_MEMORY);
+        WLOGd(L"%S: DestDir = \"%s\" ", __func__, m_dst_dir.c_str());
+      }
+    }
+  }
   if (Operation == PK_TEST) {
     // TODO: test unpack file to memory
     FIN(E_NOT_SUPPORTED);
@@ -539,6 +561,60 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   FIN_IF(ret == psCancel, 0);   // user press Cancel
 
 fin:
+  return hr;
+}
+
+int archive::extract_dir()
+{
+  int hr = 0;
+  HANDLE hDstDir = NULL;
+  cache_item * dir = m_cur_dir;
+  FILE_BASIC_INFO fbi;
+  
+  m_cur_dir = NULL;
+  
+  m_filename.clear();
+  hr = get_full_filename(m_dst_dir.c_str(), dir->name, m_filename);
+  FIN_IF(hr < 0, 0x191100 | E_NO_MEMORY);
+  
+  DWORD dwAccess = GENERIC_READ | FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES;
+  hDstDir = CreateFileW(m_filename.c_str(), dwAccess, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
+  hDstDir = (hDstDir == INVALID_HANDLE_VALUE) ? NULL : hDstDir;
+  FIN_IF(!hDstDir, 0x192000 | E_EOPEN);
+
+  BOOL x = nt::GetFileInformationByHandleEx(hDstDir, FileBasicInfo, &fbi, sizeof(fbi));
+  FIN_IF(!x, 0x193000 | E_EOPEN);
+
+  INT64 now;
+  GetSystemTimeAsFileTime((LPFILETIME)&now);
+
+  const INT WINDOWS_TICK = 10000000L;
+  INT64 time_diff = now - fbi.CreationTime.QuadPart;
+  FIN_IF(time_diff < 0, 0);                  // UB
+  FIN_IF(time_diff > 30 * WINDOWS_TICK, 0);  // 30 seconds
+
+  FIN_IF(dir->ctime <= 0 && dir->mtime <= 0, 0);
+  
+  fbi.FileAttributes = dir->attr;
+  fbi.CreationTime.QuadPart = 0;
+  if (dir->ctime > 0) {
+    fbi.CreationTime.QuadPart = dir->ctime;
+  }
+  if (dir->mtime > 0) {
+    fbi.LastWriteTime.QuadPart = dir->mtime;
+    fbi.LastAccessTime.QuadPart = dir->mtime;
+    if (fbi.CreationTime.QuadPart == 0)
+      fbi.CreationTime.QuadPart = dir->mtime;
+  }
+  
+  WLOGd(L"%S(%d): <<<UPDATE DIR>>> \"%s\" ", __func__, m_operation, m_filename.c_str());
+  nt::SetFileAttrByHandle(hDstDir, &fbi);
+  hr = 0;
+
+fin:
+  WLOGe_IF(hr, L"%S(%d): ERROR: 0x%X <<<UPDATE DIR>>> \"%s\" ", __func__, m_operation, hr, m_filename.c_str());
+  if (hDstDir)
+    CloseHandle(hDstDir);
   return hr;
 }
 
