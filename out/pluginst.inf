@@ -1,0 +1,6 @@
+[plugininstall]
+description=PAXZ packer plugin (PAX/LZ4)
+type=wcx
+file=paxz.wcx
+defaultdir=paxz
+defaultextension=pax,lz4

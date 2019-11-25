@@ -1,0 +1,16 @@
+LIBRARY "ntdll"
+EXPORTS
+  RtlGetLastWin32Error
+  RtlNtStatusToDosError
+  RtlSetLastWin32ErrorAndNtStatusFromNtStatus
+  NtQueryInformationFile
+  NtQueryDirectoryFile
+  NtQueryVolumeInformationFile
+  RtlInitializeResource
+  RtlDeleteResource
+  RtlReleaseResource
+  RtlAcquireResourceExclusive
+  RtlAcquireResourceShared
+  RtlConvertExclusiveToShared
+  RtlConvertSharedToExclusive
+  RtlDumpResource

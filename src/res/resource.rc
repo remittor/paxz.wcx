@@ -1,0 +1,105 @@
+// Microsoft Visual C++ generated resource script.
+//
+#include "resource.h"
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (Neutral) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_NEUTRAL
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_BITMAP1             BITMAP                  "paxz.bmp"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_CONFIG DIALOGEX 0, 0, 370, 223
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "PAXZ Configuration"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_STATIC,"Static",SS_WHITERECT,0,0,367,32
+    CONTROL         105,IDI_ICON,"Static",SS_BITMAP | 0x20,1,1,32,32,WS_EX_TRANSPARENT
+    LTEXT           "Dialog Title",IDC_TITLE,36,3,331,8
+    GROUPBOX        "Compression",IDC_GRP_COMP,8,36,163,59
+    RTEXT           "Compression level:",IDC_LBL_COMP_LEVEL,18,51,75,10
+    COMBOBOX        IDC_COMP_LEVEL,99,49,64,200,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    RTEXT           "Compression method:",IDC_LBL_COMP_METHOD,18,66,75,10,NOT WS_VISIBLE
+    COMBOBOX        IDC_COMP_METHOD,99,65,64,200,CBS_DROPDOWNLIST | NOT WS_VISIBLE | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX        "Cipher",IDC_GRP_PASSWORD,177,36,184,59
+    RTEXT           "Use password:",IDC_LBL_PASSWORD,182,48,54,10
+    EDITTEXT        IDC_PASSWORD,240,46,100,12,ES_AUTOHSCROLL | WS_DISABLED
+    CONTROL         "Show password in plain text",IDC_SHOW_PASSWORD,"Button",BS_AUTOCHECKBOX | WS_DISABLED | WS_TABSTOP,186,60,157,9
+    CONTROL         "Keep using this password more than once",IDC_USE_NEXT,
+                    "Button",BS_AUTOCHECKBOX | WS_DISABLED | WS_TABSTOP,186,70,157,9
+    CONTROL         "Encrypt file header and file names",IDC_ENCRYPT_HEADER,
+                    "Button",BS_AUTOCHECKBOX | WS_DISABLED | WS_TABSTOP,186,81,159,9
+    GROUPBOX        "File attributes to store when packing",IDC_GRP_FILE_ATTR,8,102,354,60
+    GROUPBOX        "File times",IDC_LBL_FILE_TIMES,15,114,110,42
+    CONTROL         "Create",IDC_LBL_SAVE_CREATE_TIME,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,20,126,96,10
+    CONTROL         "Access",IDC_LBL_SAVE_ACCESS_TIME,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,20,142,94,10
+    PUSHBUTTON      "x",IDC_RESET_FILE_TIMES,111,114,10,10
+    GROUPBOX        "File attributes",IDC_LBL_FILE_ATTRIBUTES,136,114,218,42
+    CONTROL         "Read only",IDC_LBL_SAVE_READONLY,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,143,126,95,10
+    CONTROL         "Hidden",IDC_LBL_SAVE_HIDDEN,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,143,142,96,10
+    CONTROL         "System",IDC_LBL_SAVE_SYSTEM,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,243,126,97,10
+    CONTROL         "Archive",IDC_LBL_SAVE_ARCHIVE,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,243,142,97,10
+    PUSHBUTTON      "x",IDC_RESET_FILE_ATTRIBUTES,339,113,10,10
+    DEFPUSHBUTTON   "OK",IDOK,263,206,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,317,206,50,14
+    EDITTEXT        IDC_AUTHORS,35,12,332,19,ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | ES_WANTRETURN | NOT WS_BORDER | WS_VSCROLL | NOT WS_TABSTOP
+    GROUPBOX        "Additional options",IDC_GRP_OTHER,8,168,354,34
+    COMBOBOX        IDC_CACHE_TIME,95,178,49,55,CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    RTEXT           "Cache lifetime:",IDC_LBL_CACHE_TIME,12,180,80,8
+    LTEXT           "min",IDC_LBL_CACHE_MIN,148,180,30,8
+    LTEXT           "Cache size:",IDC_LBL_CACHE_SIZE,6,210,120,8
+END
+
+IDD_PASSWORD DIALOGEX 0, 0, 202, 87
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "PAZX Password"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    CONTROL         "",IDC_STATIC,"Static",SS_WHITERECT,0,0,201,32
+    CONTROL         105,IDI_ICON,"Static",SS_BITMAP | 0x20,7,7,21,15,WS_EX_TRANSPARENT
+    LTEXT           "PAXZ archive is password protected",IDC_TITLE,36,5,158,8
+    LTEXT           "Please enter password for archive",IDC_SUBTITLE,36,17,158,8
+    CONTROL         "",IDC_STATIC,"Static",SS_BLACKFRAME,0,32,201,1
+    RTEXT           "Password:",IDC_LBL_PASSWORD,7,46,50,10
+    EDITTEXT        IDC_PASSWORD,59,44,135,12,ES_PASSWORD | ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,90,66,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,145,66,50,14
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_CONFIG, DIALOG
+    BEGIN
+        RIGHTMARGIN, 367
+        BOTTOMMARGIN, 220
+    END
+END
+#endif    // APSTUDIO_INVOKED
+
+#endif    // English (Neutral) resources
+/////////////////////////////////////////////////////////////////////////////
+
+

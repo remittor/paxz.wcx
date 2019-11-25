@@ -1,0 +1,28 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<VisualStudioPropertySheet
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="paxz"
+	InheritedPropertySheets="$(SolutionDir)\paths.VS2008.vsprops"
+	>
+	<Tool
+		Name="VCCLCompilerTool"
+		Optimization="1"
+		EnableIntrinsicFunctions="true"
+		AdditionalIncludeDirectories="win32common"
+	/>
+	<Tool
+		Name="VCLinkerTool"
+		AdditionalDependencies="nothrownew.obj fake_ntdll.lib"
+		AdditionalLibraryDirectories="$(fakeNtdllOut)"
+		GenerateManifest="false"
+		GenerateDebugInformation="true"
+		SubSystem="2"
+		OptimizeReferences="2"
+		EnableCOMDATFolding="2"
+		EntryPointSymbol="DllMain"
+		RandomizedBaseAddress="1"
+		FixedBaseAddress="1"
+		DataExecutionPrevention="1"
+	/>
+</VisualStudioPropertySheet>
