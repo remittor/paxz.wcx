@@ -192,13 +192,11 @@ int archive::extract(int Operation, LPCWSTR DestPath, LPCWSTR DestName)
 
   const size_t buf_size = 4*1024*1024;
   if (m_buf.capacity() < buf_size) {
-    size_t sz = m_buf.reserve(buf_size + 256);
-    FIN_IF(sz == bst::npos, 0x117000 | E_NO_MEMORY);
+    FIN_IF(!m_buf.reserve(buf_size + 256), 0x117000 | E_NO_MEMORY);
     m_buf.resize(buf_size);
   }
   if (m_dst.capacity() < buf_size) {
-    size_t sz = m_dst.reserve(buf_size + 256);
-    FIN_IF(sz == bst::npos, 0x118000 | E_NO_MEMORY);
+    FIN_IF(!m_dst.reserve(buf_size + 256), 0x118000 | E_NO_MEMORY);
     m_dst.resize(buf_size);
   }
   

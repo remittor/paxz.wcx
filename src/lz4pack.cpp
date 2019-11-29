@@ -51,8 +51,7 @@ int packer::frame_create(UINT64 data_size)
   size_t bsz = LZ4F_compressFrameBound(m_block_size, &m_prefs);
   if (bsz > m_buf.size()) {
     size_t msz = bsz + 2048;
-    size_t sz = m_buf.reserve(msz + 2048);
-    FIN_IF(sz == bst::npos, -11);
+    FIN_IF(!m_buf.reserve(msz + 2048), -11);
     m_buf.resize(msz);    
   }
 

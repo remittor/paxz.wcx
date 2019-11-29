@@ -350,8 +350,7 @@ int cache::scan_pax_file(HANDLE hFile)
   // TODO: support GNU tar!!!
   FIN_IF(m_arcfile.get_tar_format() != tar::POSIX_FORMAT, 0x45010100 | E_EOPEN);
 
-  size_t sz = buf.reserve(buf_size + tar::BLOCKSIZE * 2);
-  FIN_IF(sz == bst::npos, 0x45010100 | E_EOPEN);
+  FIN_IF(!buf.reserve(buf_size + tar::BLOCKSIZE * 2), 0x45010100 | E_EOPEN);
   buf.resize(buf_size);
 
   pos.QuadPart = 0;
@@ -426,12 +425,10 @@ int cache::scan_paxlz4_file(HANDLE hFile)
   bst::buf dst;
   tar::pax_decode pax;
 
-  size_t sz = buf.reserve(buf_size + tar::BLOCKSIZE);
-  FIN_IF(sz == bst::npos, 0x44010100 | E_EOPEN);
+  FIN_IF(!buf.reserve(buf_size + tar::BLOCKSIZE), 0x44010100 | E_EOPEN);
   buf.resize(buf_size);
 
-  sz = dst.reserve(buf_size + tar::BLOCKSIZE);
-  FIN_IF(sz == bst::npos, 0x44010200 | E_EOPEN);
+  FIN_IF(!dst.reserve(buf_size + tar::BLOCKSIZE), 0x44010200 | E_EOPEN);
   dst.resize(buf_size);
   
   pos.QuadPart = m_arcfile.get_data_begin();
