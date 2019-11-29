@@ -29,7 +29,7 @@ void WcxPrintMsgA(int level, const char * fmt, ...)
     int len = _vsnprintf(buf + 9, _countof(buf)-2, fmt, argptr);
     if (len < 0)
       len = 0;
-    buf[8 + len] = 0;
+    buf[9 + len] = 0;
     OutputDebugStringA(buf);
     va_end(argptr);
   }
@@ -47,7 +47,7 @@ void WcxPrintMsgW(int level, const wchar_t * fmt, ...)
     int len = _vsnwprintf(buf + 9, _countof(buf)-2, fmt, argptr);
     if (len < 0)
       len = 0;
-    buf[8 + len] = 0;
+    buf[9 + len] = 0;
     OutputDebugStringW(buf);
     va_end(argptr);
   }
