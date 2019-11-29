@@ -5,14 +5,12 @@
 
 namespace lz4 {
 
-bool is_legacy_frame(DWORD magic)
+Format check_frame_magic(DWORD magic)
 {
-  return (magic == LEGACY_MAGICNUMBER) ? true : false;
-}
-
-bool check_frame_magic(DWORD magic)
-{
-  return (magic == LZ4F_MAGICNUMBER || magic == LEGACY_MAGICNUMBER) ? true : false;
+  if (is_legacy_frame(magic))
+    return ffLegacy;
+  
+  return (magic == LZ4F_MAGICNUMBER) ? ffActual : ffUnknown;
 }
 
 int check_file_header(HANDLE hFile, UINT64 file_size)
@@ -40,9 +38,10 @@ int check_file_header(HANDLE hFile, UINT64 file_size)
   FIN_IF(!x, -5);
   FIN_IF(dwRead != sizeof(header.magic), -6);
 
-  FIN_IF(lz4::check_frame_magic(header.magic) == FALSE, -7);
+  Format fmt = lz4::check_frame_magic(header.magic);
+  FIN_IF(fmt == ffUnknown, -7);
 
-  hr = 0;
+  hr = (int)fmt;
 
 fin:
   return hr;  
