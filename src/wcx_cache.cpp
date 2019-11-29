@@ -311,6 +311,7 @@ int cache::add_pax_info(tar::pax_decode & pax, UINT64 file_pos, UINT64 frame_siz
           break;
         int x = MultiByteToWideChar(CP_UTF8, 0, name, (int)nlen, m_add_name.data(), (int)m_add_name.capacity() - 32);
         FIN_IF(x <= 0, 0x45013400 | E_EOPEN);
+        m_add_name.data()[x] = 0;
         m_add_name.fix_length();
         LPWSTR ws = m_add_name.data();
         do {
@@ -350,8 +351,7 @@ int cache::scan_pax_file(HANDLE hFile)
   // TODO: support GNU tar!!!
   FIN_IF(m_arcfile.get_tar_format() != tar::POSIX_FORMAT, 0x45010100 | E_EOPEN);
 
-  size_t sz = buf.reserve(buf_size + tar::BLOCKSIZE * 2);
-  FIN_IF(sz == bst::npos, 0x45010100 | E_EOPEN);
+  FIN_IF(!buf.reserve(buf_size + tar::BLOCKSIZE * 2), 0x45010100 | E_EOPEN);
   buf.resize(buf_size);
 
   pos.QuadPart = 0;
@@ -426,12 +426,10 @@ int cache::scan_paxlz4_file(HANDLE hFile)
   bst::buf dst;
   tar::pax_decode pax;
 
-  size_t sz = buf.reserve(buf_size + tar::BLOCKSIZE);
-  FIN_IF(sz == bst::npos, 0x44010100 | E_EOPEN);
+  FIN_IF(!buf.reserve(buf_size + tar::BLOCKSIZE), 0x44010100 | E_EOPEN);
   buf.resize(buf_size);
 
-  sz = dst.reserve(buf_size + tar::BLOCKSIZE);
-  FIN_IF(sz == bst::npos, 0x44010200 | E_EOPEN);
+  FIN_IF(!dst.reserve(buf_size + tar::BLOCKSIZE), 0x44010200 | E_EOPEN);
   dst.resize(buf_size);
   
   pos.QuadPart = m_arcfile.get_data_begin();
@@ -486,7 +484,7 @@ int cache::scan_paxlz4_file(HANDLE hFile)
     size_t plen = frame.data_size;
     DWORD calc_hash = XXH32(pd, plen, 0);
     DWORD read_hash = *(PDWORD)(pd + plen);
-    LOGi("pos = 0x%X  hash = %08X  cacl = %08X ", (DWORD)pos.QuadPart - 4, read_hash, calc_hash);
+    //LOGi("pos = 0x%X  hash = %08X  calc = %08X ", (DWORD)pos.QuadPart - 4, read_hash, calc_hash);
     FIN_IF(read_hash != calc_hash, 0x44013700 | E_EOPEN);
 
     if (frame.is_compressed) {

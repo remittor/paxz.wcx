@@ -509,9 +509,10 @@ int pax_encode::create_header(HANDLE hFile, fileinfo * fi, LPCWSTR fullFilename,
     m_fullname.wstr[--ffn_len] = 0;
   }
   LPSTR utf8name = m_utf8name.str + 2; 
-  int aLen = WideCharToMultiByte(CP_UTF8, 0, m_fullname.wstr, -1, utf8name, (int)m_utf8name.size - 8, NULL, NULL);
-  FIN_IF(aLen <= 1, 0x1502700);
-  size_t ufn_len = strlen(utf8name);
+  int aLen = WideCharToMultiByte(CP_UTF8, 0, m_fullname.wstr, (int)ffn_len, utf8name, (int)m_utf8name.size - 8, NULL, NULL);
+  FIN_IF(aLen <= 0, 0x1502700);
+  FIN_IF((size_t)aLen >= m_utf8name.size - 8, 0x1502800);
+  size_t ufn_len = aLen;
   utf8name[ufn_len] = 0;
 
   size_t k = INT_MAX;

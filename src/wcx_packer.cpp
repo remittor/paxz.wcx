@@ -53,10 +53,9 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   m_delete_out_file = true;
 
   if (m_buf.empty()) {
-    size_t bufsize = 4*1024*1024;
-    sz = m_buf.reserve(bufsize + tar::BLOCKSIZE * 8);
-    FIN_IF(sz == bst::npos, 0x207000 | E_NO_MEMORY);
-    sz = m_buf.resize(bufsize);
+    const size_t bufsize = 4*1024*1024;
+    FIN_IF(!m_buf.reserve(bufsize + tar::BLOCKSIZE * 8), 0x207000 | E_NO_MEMORY);
+    m_buf.resize(bufsize);
     FIN_IF(m_buf.size() & tar::BLOCKSIZE_MASK, 0x208000 | E_NO_MEMORY);
   }
   m_lz4.reset();
@@ -75,9 +74,8 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   FIN_IF(!x || dw != frlen, 0x209300 | E_ECREATE);
 
   if (m_ext_buf.empty()) {
-    size_t bufsize = 2*1024*1024;
-    sz = m_ext_buf.reserve(bufsize + 64);
-    FIN_IF(sz == bst::npos, 0x209900 | E_NO_MEMORY);
+    const size_t bufsize = 2*1024*1024;
+    FIN_IF(!m_ext_buf.reserve(bufsize + 64), 0x209900 | E_NO_MEMORY);
     m_ext_buf.resize(bufsize);
   }
 

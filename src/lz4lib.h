@@ -26,11 +26,16 @@ const DWORD BLOCKUNCOMPRES_FLAG = 0x80000000UL; // LZ4F_BLOCKUNCOMPRESSED_FLAG
 enum Format : char {
   ffUnknown = 0,
   ffLegacy  = 1,    // legacy LZ4 frame
-  ffLz4     = 2,    // actual LZ4 frame
+  ffActual  = 2,    // actual LZ4 frame
 };
 
-bool is_legacy_frame(DWORD magic);
-bool check_frame_magic(DWORD magic);
+__forceinline
+bool is_legacy_frame(DWORD magic)
+{
+  return (magic == LEGACY_MAGICNUMBER) ? true : false;
+}
+
+Format check_frame_magic(DWORD magic);
 int check_file_header(HANDLE hFile, UINT64 file_size);
 int check_file_header(LPCWSTR filename);
 

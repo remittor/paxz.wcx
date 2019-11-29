@@ -217,7 +217,7 @@ int arcfile::update_type(HANDLE hFile)
   FIN_IF(finfo.frameType != LZ4F_frame, 0);
 
   m_type = atLz4;
-  m_lz4format = lz4::ffLz4;
+  m_lz4format = lz4::ffActual;
   
   if (finfo.data_size) {
     int sz = 0;

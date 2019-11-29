@@ -82,8 +82,7 @@ int get_full_filename(LPCWSTR path, LPCWSTR name, bst::wstr & fullname)
 {
   size_t fnlen = path ? wcslen(path) : 0;
   fnlen += wcslen(name);
-  size_t cap = fullname.reserve(fnlen + 32);
-  if (cap == bst::npos)
+  if (!fullname.reserve(fnlen + 32))
     return -10;
   int hr = get_full_filename(path, name, fullname.data(), fnlen + 15);
   if (hr) {
