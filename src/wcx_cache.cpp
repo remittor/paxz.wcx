@@ -310,9 +310,9 @@ int cache::add_pax_info(tar::pax_decode & pax, UINT64 file_pos, UINT64 frame_siz
         if (nlen == 0)
           break;
         int x = MultiByteToWideChar(CP_UTF8, 0, name, (int)nlen, m_add_name.data(), (int)m_add_name.capacity() - 32);
-        FIN_IF(x <= 0, 0x45013400 | E_EOPEN);
-        m_add_name.data()[x] = 0;
-        m_add_name.fix_length();
+        FIN_IF(x <= 0, 0x45013300 | E_EOPEN);
+        FIN_IF((size_t)x >= m_add_name.capacity() - 32, 0x45013400 | E_EOPEN);
+        m_add_name.resize(x);
         LPWSTR ws = m_add_name.data();
         do {
           if (*ws == L'/')
