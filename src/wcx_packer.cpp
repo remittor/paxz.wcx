@@ -39,7 +39,6 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   HANDLE hFile = NULL;
   BOOL x;
   int ret;
-  size_t sz;
   size_t fn_num = 0;
   tar::pax_encode pax;
   DWORD dw;

@@ -89,7 +89,7 @@ public:
     set_defaults();
     va_list argptr;
     va_start(argptr, fmt);
-    assign_va_internal(fmt.c_str(), argptr);
+    assign_fmt_internal(fmt.c_str(), argptr);
     va_end(argptr);
   }
   
@@ -167,7 +167,7 @@ public:
       destroy();
       return true;
     }
-    if (is_buffer == false)
+    if (!is_buffer)
       if ((SSIZE_T)len <= 0)
         len = get_length(s);
 
@@ -180,7 +180,7 @@ public:
       return false;
 
     memcpy(m_buf, s, len * sizeof(CharT));
-    if (is_buffer == false)
+    if (!is_buffer)
       m_buf[len] = 0;
 
     m_len = len;
@@ -315,7 +315,7 @@ public:
     if (!s)
       return *this;
 
-    if (is_buffer == false)
+    if (!is_buffer)
       if ((SSIZE_T)slen <= 0)
         slen = get_length(s);
 
@@ -329,7 +329,7 @@ public:
     if (len > m_len) {
       memcpy(&m_buf[m_len], s, (len - m_len) * sizeof(CharT));
       m_len = len;
-      if (is_buffer == false)
+      if (!is_buffer)
         m_buf[m_len] = 0;
     }
     return *this;  
@@ -351,7 +351,7 @@ public:
 
     if (len > 0) {
       memcpy(s, &m_buf[pos], len * sizeof(CharT));
-      if (is_buffer == false)
+      if (!is_buffer)
         s[len] = 0;
     }
     return len;
@@ -416,15 +416,12 @@ protected:
         m_last_error = e_out_of_memory;
         return false;
       }
+      buf[0] = 0;
       if (m_buf) {
         if (m_len && save_data) {
           memcpy(buf, m_buf, (m_len + 1) * sizeof(CharT));
-        } else {
-          buf[0] = 0;
         }  
         bst::free(m_buf);
-      } else {
-        buf[0] = 0;
       }
       m_buf = buf;
       m_capacity = new_capacity;
@@ -438,7 +435,7 @@ protected:
       return len;
 
     if (len < m_len) {
-      if (is_buffer == false)
+      if (!is_buffer)
         m_buf[len] = 0;
       m_len = len;
       return len;
@@ -452,7 +449,7 @@ protected:
         m_buf[i] = c;
       }
     }  
-    if (is_buffer == false)
+    if (!is_buffer)
       m_buf[len] = 0;
 
     m_len = len;
@@ -527,11 +524,10 @@ protected:
     
     size_t res;
     if (_case == case_sensitive) {
-      if (is_wstring) {
+      if (is_wstring)
         res = (size_t)StrRChrW((LPCWSTR)m_buf, (LPCWSTR)end, (WCHAR)c);
-      } else {
+      else
         res = (size_t)StrRChrA((LPCSTR)m_buf, (LPCSTR)end, (CHAR)c);
-      }
     } else {
       if (is_wstring)
         res = (size_t)StrRChrIW((LPCWSTR)m_buf, (LPCWSTR)end, (WCHAR)c);
@@ -611,11 +607,10 @@ protected:
 
     size_t res;
     if (_case == case_sensitive) {
-      if (is_wstring) {
+      if (is_wstring)
         res = (size_t)StrChrW((LPCWSTR)m_buf + pos, (WCHAR)c);
-      } else {
+      else
         res = (size_t)StrChrA((LPCSTR)m_buf + pos, (CHAR)c);
-      }
     } else {
       if (is_wstring)
         res = (size_t)StrChrIW((LPCWSTR)m_buf + pos, (WCHAR)c);
@@ -639,7 +634,7 @@ public:
 protected:
   string_base & insert_internal(size_t pos, const CharT * s, size_t slen)
   {
-    if (is_buffer == false)
+    if (!is_buffer)
       if ((SSIZE_T)slen <= 0)
         slen = get_length(s);
 
@@ -654,7 +649,7 @@ protected:
       memmove(m_buf + pos + slen, m_buf + pos, m_len - pos + 1);
 
     memcpy(m_buf + pos, s, slen);
-    if (is_buffer == false)
+    if (!is_buffer)
       m_buf[len] = 0;
 
     m_len = len;
@@ -774,7 +769,7 @@ public:
 
   bool reserve(size_t len)
   {
-    return (len < PreAllocLen) ? true : false;
+    return (len <= PreAllocLen) ? true : false;
   }
 
   bool is_null() const
