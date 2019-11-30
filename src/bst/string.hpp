@@ -431,11 +431,8 @@ protected:
 
   size_t resize_internal(size_t len, bool fill, CharT c)
   {
-    if (len == m_len)
-      return len;
-
-    if (len < m_len) {
-      if (!is_buffer)
+    if (len <= m_len) {
+      if (!is_buffer && m_buf)
         m_buf[len] = 0;
       m_len = len;
       return len;
