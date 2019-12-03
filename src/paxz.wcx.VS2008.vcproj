@@ -422,15 +422,17 @@
       <File RelativePath=".\bst\srw_lock.hpp"></File>
       <File RelativePath=".\bst\string.hpp"></File>
     </Filter>
-    <Filter Name="LZ4">
-      <File RelativePath="..\lz4\lib\lz4.c"></File>
-      <File RelativePath="..\lz4\lib\lz4.h"></File>
-      <File RelativePath="..\lz4\lib\lz4frame.h"></File>
-      <File RelativePath="..\lz4\lib\lz4frame_static.h"></File>
-      <File RelativePath="..\lz4\lib\lz4hc.c"></File>
-      <File RelativePath="..\lz4\lib\lz4hc.h"></File>
-      <File RelativePath="..\lz4\lib\xxhash.c"></File>
-      <File RelativePath="..\lz4\lib\xxhash.h"></File>
+    <Filter Name="ExtLibs">
+      <Filter Name="LZ4">
+        <File RelativePath="..\extlibs\lz4\lib\lz4.c"></File>
+        <File RelativePath="..\extlibs\lz4\lib\lz4.h"></File>
+        <File RelativePath="..\extlibs\lz4\lib\lz4frame.h"></File>
+        <File RelativePath="..\extlibs\lz4\lib\lz4frame_static.h"></File>
+        <File RelativePath="..\extlibs\lz4\lib\lz4hc.c"></File>
+        <File RelativePath="..\extlibs\lz4\lib\lz4hc.h"></File>
+        <File RelativePath="..\extlibs\lz4\lib\xxhash.c"></File>
+        <File RelativePath="..\extlibs\lz4\lib\xxhash.h"></File>
+      </Filter>
     </Filter>
     <Filter Name="Libs">
       <File RelativePath=".\lz4lib.cpp"></File>

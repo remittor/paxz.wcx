@@ -6,9 +6,9 @@
 #define LZ4_STATIC_LINKING_ONLY
 #define LZ4_HC_STATIC_LINKING_ONLY
 #define XXH_STATIC_LINKING_ONLY
-#include "..\lz4\lib\lz4hc.h"
-#include "..\lz4\lib\lz4frame_static.h"
-#include "..\lz4\lib\xxhash.h"
+#include "lz4\lib\lz4hc.h"
+#include "lz4\lib\lz4frame_static.h"
+#include "lz4\lib\xxhash.h"
 
 
 namespace lz4 {

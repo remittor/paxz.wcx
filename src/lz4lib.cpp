@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "lz4lib.h"
 
-#include "..\lz4\lib\lz4frame.c"
+#include "lz4\lib\lz4frame.c"
 
 namespace lz4 {
 

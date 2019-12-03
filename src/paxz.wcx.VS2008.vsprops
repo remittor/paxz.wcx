@@ -9,7 +9,7 @@
     Name="VCCLCompilerTool"
     Optimization="1"
     EnableIntrinsicFunctions="true"
-    AdditionalIncludeDirectories="win32common"
+    AdditionalIncludeDirectories="win32common;..\extlibs;"
   />
   <Tool
     Name="VCLinkerTool"
