@@ -47,13 +47,14 @@ int decode_data_partial(LPCVOID src, size_t srcSize, LPVOID dst, size_t dstSize,
 
 struct frame_info : public LZ4F_frameInfo_t
 {
-  size_t  frame_size;
+  size_t  header_size;
   size_t  data_offset;
   bool    is_compressed;
   size_t  data_size;
   
-  int init(LPCVOID buf, size_t bufsize) { frame_size = 0; return get_frame_info(buf, bufsize, this); }
+  int init(LPCVOID buf, size_t bufsize) { header_size = 0; return get_frame_info(buf, bufsize, this); }
   LZ4F_frameInfo_t * get_ptr() { return (LZ4F_frameInfo_t *)this; }
+  size_t get_header_size() { return header_size; }
 };
 
 

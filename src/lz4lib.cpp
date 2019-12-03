@@ -81,7 +81,7 @@ int get_frame_info(LPCVOID buf, size_t bufsize, frame_info * finfo)
     return -3;
   if (offset + 4 > bufsize)
     return -4;
-  finfo->frame_size = offset;
+  finfo->header_size = offset;
   UINT32 data_size = *(PUINT32)((PBYTE)buf + offset);
   if (finfo->frameType == LZ4F_skippableFrame) {
     finfo->is_compressed = false;
