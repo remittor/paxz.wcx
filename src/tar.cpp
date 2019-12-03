@@ -190,7 +190,7 @@ int xheader::init(LPVOID buf, size_t bufsize)
     return -1;
   m_header = (struct posix_header *)buf;
   m_buf = (LPSTR)m_header + BLOCKSIZE;
-  m_buf_cap = (bufsize & ~BLOCKSIZE_MASK) - (BLOCKSIZE * 2);
+  m_buf_cap = blocksize_round(bufsize) - (BLOCKSIZE * 2);
   m_pos = m_buf;
   m_used = BLOCKSIZE;
   memset(m_header, 0, BLOCKSIZE * 2);
@@ -202,8 +202,8 @@ int xheader::add_param_str(LPCSTR keyword, LPCSTR value, size_t value_len)
 {
   char nbuf[INT_STRSIZE];
   size_t klen = strlen(keyword);
-  value_len = value_len ? value_len : strlen(value);
-  size_t len = klen + value_len + 3; /* ' ' + '=' + '\n' */
+  size_t vlen = value_len ? value_len : strlen(value);
+  size_t len = klen + vlen + 3; /* ' ' + '=' + '\n' */
   char * np;
   size_t sz;
   size_t szn = 1;
@@ -228,9 +228,9 @@ int xheader::add_param_str(LPCSTR keyword, LPCSTR value, size_t value_len)
   memcpy(m_pos, keyword, klen);
   m_pos += klen;
   *m_pos++ = '=';
-  if (value_len) {
-    memcpy(m_pos, value, value_len);
-    m_pos += value_len;
+  if (vlen) {
+    memcpy(m_pos, value, vlen);
+    m_pos += vlen;
   }
   *m_pos++ = '\n';
   return 0;
@@ -869,7 +869,7 @@ void pax_decode::clear()
 
 int pax_decode::parse_pax_param(LPCSTR keyword, size_t klen, LPCSTR str, size_t size)
 {
-  int hr = 0x1556800;
+  int hr = 0;
   UINT64 vu64;
   INT64 vs64;
 
@@ -941,7 +941,9 @@ int pax_decode::parse_pax_param(LPCSTR keyword, size_t klen, LPCSTR str, size_t 
       k++;
     }
     return 0;
-  } 
+  }
+
+  hr = 0;  /* ignore not supported params */ 
 
 fin:
   return hr;
