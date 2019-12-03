@@ -35,7 +35,7 @@ int callback::tell_process_data_by_writing(UINT64 size, bool forced)
   FIN_IF(delta == 0, psProcess);  // skip double telling
   m_read_size = size;
   if (forced || delta >= tell_size_factor || GetTickBetween(m_prev_tell_time, GetTickCount()) > 500) {
-    WLOGi(L"%S: \"%s\" size = %I64d (%d) ", __func__, m_FileName, size, (int)delta);
+    WLOGd(L"%S: \"%s\" size = %I64d (%d) ", __func__, m_FileName, size, (int)delta);
     if (delta > INT_MAX) {
       WLOGi(L"%S: <<<ERROR>>> delta = %I64d > %d ", delta, INT_MAX);
       delta = INT_MAX;   // CRITICAL ERROR !!!
@@ -81,7 +81,7 @@ int callback::tell_process_data_by_reading(UINT64 size, bool forced)
         progress = 100;
       }
     }
-    WLOGi(L"%S: \"%s\" total persent = %d ", __func__, m_FileName, progress);
+    WLOGd(L"%S: \"%s\" total persent = %d ", __func__, m_FileName, progress);
     hr = m_fn.ProcessDataProcW(m_FileName, -progress);
     LOGi_IF(hr == psCancel, "%s: ---<<<USER PRESS CANCEL>>>---", __func__);
     tell_time_reset();
@@ -94,7 +94,7 @@ int callback::update_top_progressbar(int percent)
   int hr = psProcess;
   FIN_IF(!m_fn.ProcessDataProcW, psProcess);
   if (percent > 0) {
-    WLOGi(L"%S: \"%s\" percent = %d ", __func__, m_FileName, percent);
+    WLOGd(L"%S: \"%s\" percent = %d ", __func__, m_FileName, percent);
     hr = m_fn.ProcessDataProcW(m_FileName, -percent);
     FIN_IF(hr == psCancel, psCancel);  // user press Cancel
   }
@@ -107,13 +107,13 @@ int callback::tell_process_data2(int percent, int total_percent)
   int hr = psProcess;
   FIN_IF(!m_fn.ProcessDataProcW, psProcess);
   if (percent > 0) {
-    WLOGi(L"%S: \"%s\" percent = %d ", __func__, m_FileName, percent);
+    WLOGd(L"%S: \"%s\" percent = %d ", __func__, m_FileName, percent);
     hr = m_fn.ProcessDataProcW(m_FileName, -percent);
     tell_time_reset();
     FIN_IF(hr == psCancel, psCancel);  // user press Cancel
   }
   if (total_percent >= 0) {
-    WLOGi(L"%S: \"%s\" TOTAL percent = %d ", __func__, m_FileName, total_percent);
+    WLOGd(L"%S: \"%s\" TOTAL percent = %d ", __func__, m_FileName, total_percent);
     hr = m_fn.ProcessDataProcW(m_FileName, (-1000L) - total_percent);
     tell_time_reset();
     FIN_IF(hr == psCancel, psCancel);  // user press Cancel

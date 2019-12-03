@@ -11,7 +11,7 @@ WcxDllExport
 void WINAPI PackSetDefaultParams(tPackDefaultParam * dps)
 {
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-  LOGd("%s: ver = %d.%d, ini = \"%s\" ", __func__, dps->PluginInterfaceVersionHi, dps->PluginInterfaceVersionLow, dps->DefaultIniName);
+  LOGt("%s: ver = %d.%d, ini = \"%s\" ", __func__, dps->PluginInterfaceVersionHi, dps->PluginInterfaceVersionLow, dps->DefaultIniName);
 }
 
 WcxDllExport
@@ -20,9 +20,9 @@ void WINAPI SetChangeVolProc(void * hArcData, tChangeVolProcW pChangeVolProc)
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
   wcx::archive * arc = (wcx::archive *)hArcData;
   if ((SSIZE_T)arc == -1 || !arc) {
-    WLOGd(L"%S: %p [hArcData = %Id]", __func__, pChangeVolProc, (SSIZE_T)arc);
+    WLOGt(L"%S: %p [hArcData = %Id]", __func__, pChangeVolProc, (SSIZE_T)arc);
   } else {
-    WLOGd(L"%S: %p \"%s\" ", __func__, pChangeVolProc, arc->get_name());
+    WLOGt(L"%S: %p \"%s\" ", __func__, pChangeVolProc, arc->get_name());
   }
 }
 
@@ -32,9 +32,9 @@ void WINAPI SetChangeVolProcW(void * hArcData, tChangeVolProcW pChangeVolProc)
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
   wcx::archive * arc = (wcx::archive *)hArcData;
   if ((SSIZE_T)arc == -1 || !arc) {
-    WLOGd(L"%S: %p [hArcData = %Id]", __func__, pChangeVolProc, (SSIZE_T)arc);
+    WLOGt(L"%S: %p [hArcData = %Id]", __func__, pChangeVolProc, (SSIZE_T)arc);
   } else {
-    WLOGd(L"%S: %p \"%s\" ", __func__, pChangeVolProc, arc->get_name());
+    WLOGt(L"%S: %p \"%s\" ", __func__, pChangeVolProc, arc->get_name());
     arc->m_cb.set_ChangeVolProc(pChangeVolProc);
   }
 }
@@ -45,9 +45,9 @@ void WINAPI SetProcessDataProc(void * hArcData, tProcessDataProcW pProcessDataPr
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
   wcx::archive * arc = (wcx::archive *)hArcData;
   if ((SSIZE_T)arc == -1 || !arc) {
-    WLOGd(L"%S: %p [hArcData = %Id]", __func__, pProcessDataProc, (SSIZE_T)arc);
+    WLOGt(L"%S: %p [hArcData = %Id]", __func__, pProcessDataProc, (SSIZE_T)arc);
   } else {
-    WLOGd(L"%S: %p \"%s\" ", __func__, pProcessDataProc, arc->get_name());
+    WLOGt(L"%S: %p \"%s\" ", __func__, pProcessDataProc, arc->get_name());
   }
 }
 
@@ -57,10 +57,10 @@ void WINAPI SetProcessDataProcW(void * hArcData, tProcessDataProcW pProcessDataP
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
   wcx::archive * arc = (wcx::archive *)hArcData;
   if ((SSIZE_T)arc == -1 || !arc) {
-    WLOGd(L"%S: %p [hArcData = %Id]", __func__, pProcessDataProc, (SSIZE_T)arc);
+    WLOGt(L"%S: %p [hArcData = %Id]", __func__, pProcessDataProc, (SSIZE_T)arc);
     g_wcx.set_ProcessDataProcW(pProcessDataProc);
   } else {
-    WLOGd(L"%S: %p \"%s\" ", __func__, pProcessDataProc, arc->get_name());
+    WLOGt(L"%S: %p \"%s\" ", __func__, pProcessDataProc, arc->get_name());
     arc->m_cb.set_ProcessDataProc(pProcessDataProc);
   }
 }
@@ -69,7 +69,7 @@ WcxDllExport
 BOOL WINAPI CanYouHandleThisFile(char * filename)
 {
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-  LOGd("%s: <<<NOT_SUPPORTED>>> filename = \"%s\" ", __func__, filename);
+  LOGw("%s: <<<NOT_SUPPORTED>>> filename = \"%s\" ", __func__, filename);
   return E_NOT_SUPPORTED;
 }
 
@@ -78,7 +78,7 @@ BOOL WINAPI CanYouHandleThisFileW(LPCWSTR filename)
 {
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
   int hr = g_wcx.check_file(filename);
-  WLOGd(L"%S: filename = \"%s\" ==> result = 0x%X ", __func__, filename, hr);
+  WLOGi(L"%S: filename = \"%s\" ==> result = 0x%X ", __func__, filename, hr);
   return hr ? FALSE : TRUE;
 }
 
@@ -191,7 +191,7 @@ WcxDllExport
 int WINAPI GetBackgroundFlags(void)
 {
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-  LOGd("%s", __func__);
+  LOGt("%s", __func__);
   return BACKGROUND_UNPACK | BACKGROUND_PACK;
 }
 
@@ -199,7 +199,7 @@ WcxDllExport
 int WINAPI GetPackerCaps()
 {
   #pragma comment(linker, "/EXPORT:" __FUNCTION__ "=" __FUNCDNAME__)
-  LOGd("%s", __func__);
+  LOGt("%s", __func__);
   return PK_CAPS_BY_CONTENT | PK_CAPS_NEW | PK_CAPS_MULTIPLE | PK_CAPS_SEARCHTEXT;
 }
 
@@ -222,11 +222,12 @@ BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpReserved)
     DWORD tid = GetCurrentThreadId();
     g_hInstance = hInstDLL;
     _CRT_INIT(hInstDLL, fdwReason, lpReserved);
-    LOGd("WCX Plugin Loaded ===================== Thread ID = 0x%X ========", tid);
+    LOGn("WCX Plugin Loaded ===================== Thread ID = 0x%X ========", tid);
     g_wcx.init(hInstDLL, tid);
   }  
   if (fdwReason == DLL_PROCESS_DETACH) {
-    LOGd("WCX Plugin unload! -------------------------------- 0x%X --------", g_wcx.get_main_thread_id());
+    DWORD tid = g_wcx.get_main_thread_id();
+    LOGn("WCX Plugin unload! -------------------------------- 0x%X --------", tid);
     _CRT_INIT(hInstDLL, fdwReason, lpReserved);
   }
   return TRUE;
