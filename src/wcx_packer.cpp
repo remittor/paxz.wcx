@@ -196,6 +196,7 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   set_block_size(m_buf.size());
   set_compression_level(m_cfg.get_compression_level());
   LOGi("%s: compression level = %d", __func__, m_cpr_level);
+  m_start_time = GetTickCount();
   reset_ctx(true);
 
   hr = frame_create(0);    /* create LZ4 zero frame */
@@ -332,6 +333,11 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   hr = 0;
 
 fin:
+  DWORD dt = GetTickBetween(m_start_time, GetTickCount());
+  if (m_buf.size() && dt > 0) {
+    UINT64 speed = m_readed_size / dt;  // (m_readed_size * 1000) / (dt * 1024);
+    LOGi("%s: readed_size = %I64d MB  speed = %I64d kB/s  [%d ms]", __func__, m_readed_size / (1024*1024), speed, dt);
+  }
   LOGd_IF(hr == 0, "%s: OK!  output_size = %I64d ", __func__, m_buf.size() ? m_output_size : -1LL);
   if (hr && m_outFile) {
     m_delete_out_file = true;

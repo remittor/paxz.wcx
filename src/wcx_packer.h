@@ -42,6 +42,7 @@ private:
   bst::buf  m_buf;
 
   wcx::callback m_cb;
+  DWORD     m_start_time;
 
   bst::buf  m_ext_buf;
 
