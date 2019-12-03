@@ -223,6 +223,7 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   int ret;
   size_t fn_num = 0;
   tar::pax_encode pax;
+  paxz::frame_root aux_frame;
   DWORD dw;
 
   FIN_IF(!m_AddListSize, 0x201000 | E_NO_FILES);
@@ -246,16 +247,16 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   m_start_time = GetTickCount();
   reset_ctx(true);
 
-  hr = frame_create(0);    /* create LZ4/Zstd zero frame */
-  FIN_IF(hr, 0x209100 | E_ECREATE);
-  hr = frame_close();
-  FIN_IF(hr, 0x209200 | E_ECREATE);
-  
-  paxz::frame_root fr;
-  int frlen = fr.init_pax(0, 0, false);
-  x = WriteFile(m_outFile, &fr, frlen, &dw, NULL);
-  FIN_IF(!x || dw != frlen, 0x209300 | E_ECREATE);
-
+  if (m_cpr_level >= 0) {
+    hr = frame_create(0);    /* create LZ4/Zstd zero frame */
+    FIN_IF(hr, 0x209100 | E_ECREATE);
+    hr = frame_close();
+    FIN_IF(hr, 0x209200 | E_ECREATE);
+    
+    int frlen = aux_frame.init_pax(0, 0, false);
+    x = WriteFile(m_outFile, &aux_frame, frlen, &dw, NULL);
+    FIN_IF(!x || dw != frlen, 0x209300 | E_ECREATE);
+  }
   if (m_ext_buf.empty()) {
     const size_t bufsize = 2*1024*1024;
     FIN_IF(!m_ext_buf.reserve(bufsize + 64), 0x209900 | E_NO_MEMORY);
@@ -372,10 +373,11 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
     FIN_IF(ret == psCancel, 0);   // user press Cancel
   }
 
-  frlen = fr.init_end(0);
-  x = WriteFile(m_outFile, &fr, frlen, &dw, NULL);
-  FIN_IF(!x || dw != frlen, 0x279500 | E_ECREATE);
-
+  if (m_cpr_level >= 0) {
+    int frlen = aux_frame.init_end(0);
+    BOOL x = WriteFile(m_outFile, &aux_frame, frlen, &dw, NULL);
+    FIN_IF(!x || dw != frlen, 0x279500 | E_ECREATE);
+  }
   m_delete_out_file = false;
   hr = 0;
 
