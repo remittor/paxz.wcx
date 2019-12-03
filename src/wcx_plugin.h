@@ -1,8 +1,6 @@
 #pragma once
 
 #include "stdafx.h"
-#include "lz4lib.h"
-#include "lz4pack.h"
 #include "wcx_cache.h"
 #include "wcx_cfg.h"
 #include "wcx_packer.h"

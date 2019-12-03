@@ -437,8 +437,6 @@
     <Filter Name="Libs">
       <File RelativePath=".\lz4lib.cpp"></File>
       <File RelativePath=".\lz4lib.h"></File>
-      <File RelativePath=".\lz4pack.cpp"></File>
-      <File RelativePath=".\lz4pack.h"></File>
     </Filter>
     <Filter Name="Options">
       <File RelativePath=".\res\winres.h"></File>
