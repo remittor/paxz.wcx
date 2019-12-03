@@ -113,18 +113,12 @@ int inicfg::init(HMODULE mod_addr)
   FIN_IF(nlen < 4 || nlen >= MAX_PATH, -2);
   FIN_IF(GetLastError() != ERROR_SUCCESS, -3);  
   m_wcx_path.fix_length();
-  WLOGd(L"wcx path = '%s'", m_wcx_path.c_str());
+  //WLOGd(L"wcx path = '%s'", m_wcx_path.c_str());
   pos = m_wcx_path.rfind(L'\\');
   m_wcx_path.resize(pos + 1);
   
   m_ini_file.assign(m_wcx_path);
-  WLOGd(L"%S: plugin dir = \"%s\" ", __func__, m_ini_file.c_str());
-  sz = strlen(ini::filename);
-  LPWSTR str = m_ini_file.data() + m_ini_file.length();
-  for (size_t i = 0; i < sz; i++) {
-    str[i] = (WCHAR)ini::filename[i];
-  }
-  m_ini_file.fix_length();
+  m_ini_file.append_fmt(L"%S", ini::filename);
   WLOGd(L"INI = \"%s\" ", m_ini_file.c_str());
   
   update_lang();
