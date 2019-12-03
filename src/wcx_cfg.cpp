@@ -18,10 +18,21 @@ cfg::~cfg()
 
 bool cfg::assign(const cfg & config)
 {
+  m_debug_level = config.m_debug_level;
   m_cmp_level = config.m_cmp_level;
   m_attr_time = config.m_attr_time;
   m_attr_file = config.m_attr_file;
   m_cache_lifetime = config.m_cache_lifetime;
+  return true;
+}
+
+bool cfg::set_debug_level(int dbg_level)
+{
+  m_debug_level = dbg_level;
+  if (dbg_level < LL_ERROR)
+    m_debug_level = LL_ERROR;
+  if (dbg_level > LL_TRACE)
+    m_debug_level = LL_TRACE;
   return true;
 }
 
@@ -142,6 +153,14 @@ int inicfg::load_from_ini(bool forced)
   DWORD dw = GetFileAttributesW(m_ini_file.c_str());
   FIN_IF(dw == INVALID_FILE_ATTRIBUTES, -12);
 
+#ifdef WCX_DEBUG
+  val = (int)GetPrivateProfileIntW(ini::settings, L"DebugLevel", -1, m_ini_file.c_str());
+  if (val >= 0) {
+    config.set_debug_level(val);
+    LOGi("%s: debug level = %d ", __func__, val);
+    WcxSetLogLevel(val);
+  }
+#endif
   val = (int)GetPrivateProfileIntW(ini::settings, L"CompressionLevel", -1, m_ini_file.c_str());
   if (val >= 0) {
     config.set_compression_level(val);
@@ -181,6 +200,10 @@ int inicfg::save_to_ini(wcx::cfg & cfg)
   DWORD dw = GetFileAttributesW(m_ini_file.c_str());
   FIN_IF(dw == INVALID_FILE_ATTRIBUTES, -22);
 
+#ifdef WCX_DEBUG
+  str.assign_fmt(L"%d", cfg.get_debug_level());
+  WritePrivateProfileStringW(ini::settings, L"DebugLevel", str.c_str(), m_ini_file.c_str());
+#endif
   str.assign_fmt(L"%d", cfg.get_compression_level());
   WritePrivateProfileStringW(ini::settings, L"CompressionLevel", str.c_str(), m_ini_file.c_str());
   
@@ -449,6 +472,15 @@ int dialog::get_compression_level()
   return get_combobox_seleted_data(IDC_COMP_LEVEL);
 }
 
+int dialog::show_control(int idc)
+{
+  HWND wnd = GetDlgItem(m_wnd, idc);
+  if (!wnd)
+    return -1;
+  ShowWindow(wnd, SW_SHOW);
+  return 0;
+}
+
 int dialog::enable_controls()
 {
   //int index = SendDlgItemMessage(m_wnd, IDC_COMP_LEVEL, CB_GETCURSEL, (WPARAM)0, (LPARAM)0);
@@ -535,6 +567,21 @@ int dialog::wm_init(HWND hwndDlg, WPARAM wParam)
     SetWindowTextW(wnd, wstr.c_str());
   }
 
+#ifdef WCX_DEBUG  
+  /* init debug level */
+  int cdl = m_cfg.get_debug_level();
+  for (int i = 0; i < _countof(DLG::debug_level); i++) {
+    int val = DLG::debug_level[i];
+    wstr.assign_fmt(L" %d - %S", val, DLG::debug_level_name[i]);
+    int index = combobox_add(IDC_DEBUG_LEVEL, wstr.c_str(), val);
+    if (val == cdl) {
+      SendDlgItemMessage(m_wnd, IDC_DEBUG_LEVEL, CB_SETCURSEL, (WPARAM)index, 0);
+    }
+  }
+  show_control(IDC_DEBUG_LEVEL);
+  show_control(IDC_LBL_DEBUG_LEVEL);
+#endif
+
   /* init file attr flags */
   set_file_time_checkbox(m_cfg.get_attr_time());
   set_file_attr_checkbox(m_cfg.get_attr_file());
@@ -610,6 +657,11 @@ bool dialog::is_checked(int idc)
 int dialog::wm_command_ok()
 {
   int hr = 0;
+
+#ifdef WCX_DEBUG
+  m_cfg.set_debug_level(get_combobox_seleted_data(IDC_DEBUG_LEVEL));
+  WcxSetLogLevel(m_cfg.get_debug_level());
+#endif
 
   m_cfg.set_compression_level(get_compression_level());
   

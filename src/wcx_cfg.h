@@ -12,6 +12,8 @@ namespace DLG {
   static const char copyright[] = WCX_COPYRIGHT;
   static const char sources[]   = WCX_SOURCES;
   static const int cache_lifetimes[] = {2, 5, 12, 20, 60, 180, INT_MAX};
+  static const int  debug_level[]         = { 3,       4,         5,        6,      7,       8};
+  static const char debug_level_name[][9] = {"ERROR", "WARNING", "NOTICE", "INFO", "DEBUG", "TRACE"};
 };
 
 namespace ini {
@@ -41,6 +43,7 @@ public:
   
   void set_defaults()
   {
+    m_debug_level = LL_DEBUG;
     m_cmp_level   = 4;
     m_Attr_Time   = save_ctime | save_atime;
     m_Attr_File   = save_readonly | save_hidden | save_system | save_archive;
@@ -52,11 +55,13 @@ public:
   cfg(const cfg & config) { assign(config); }
   bool assign(const cfg & config);
 
+  int        get_debug_level()        { return m_debug_level; }
   int        get_compression_level()  { return m_cmp_level; }
   int        get_cache_lifetime()     { return m_cache_lifetime; }
   AttrTime   get_attr_time() { return m_attr_time; }
   AttrFile   get_attr_file() { return m_attr_file; }
   
+  bool set_debug_level(int dbg_level);
   bool set_compression_level(int cmp_level);
   bool set_uncompress_mode();
   bool set_cache_lifetime(int minutes);
@@ -64,6 +69,7 @@ public:
   bool set_file_attr(int flags);
 
 protected:  
+  int        m_debug_level;
   int        m_cmp_level;
   union {
     AttrTime m_attr_time;
@@ -162,6 +168,7 @@ public:
   int get_combobox_seleted_data(int idc);
   bool is_checked(int idc);
   int get_compression_level();
+  int show_control(int idc);
   int enable_controls();
   int update_combos();
   void set_combobox_height(int idc, int nItems);
