@@ -433,10 +433,78 @@
         <File RelativePath="..\extlibs\lz4\lib\xxhash.c"></File>
         <File RelativePath="..\extlibs\lz4\lib\xxhash.h"></File>
       </Filter>
+      <Filter Name="Zstd">
+        <File RelativePath="..\extlibs\zstd\lib\zstd.h"></File>
+        <Filter Name="common">
+          <File RelativePath="..\extlibs\zstd\lib\common\bitstream.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\entropy_common.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\error_private.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\error_private.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\fse.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\fse_decompress.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\huf.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\mem.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\pool.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\pool.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\xxhash.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\xxhash.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\zstd_common.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\zstd_errors.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\common\zstd_internal.h"></File>
+        </Filter>
+        <Filter Name="compress">
+          <File RelativePath="..\extlibs\zstd\lib\compress\fse_compress.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\hist.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\hist.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\huf_compress.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_compress.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_compress_internal.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_compress_literals.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_compress_literals.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_compress_sequences.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_compress_sequences.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_cwksp.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_double_fast.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_double_fast.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_fast.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_fast.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_lazy.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_lazy.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_ldm.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_ldm.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_opt.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstd_opt.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstdmt_compress.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\compress\zstdmt_compress.h"></File>
+        </Filter>
+        <Filter Name="decompress">
+          <File RelativePath="..\extlibs\zstd\lib\decompress\huf_decompress.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\decompress\zstd_ddict.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\decompress\zstd_ddict.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\decompress\zstd_decompress.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\decompress\zstd_decompress_block.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\decompress\zstd_decompress_block.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\decompress\zstd_decompress_internal.h"></File>
+        </Filter>
+        <Filter Name="dictBuilder">
+          <File RelativePath="..\extlibs\zstd\lib\dictBuilder\cover.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\dictBuilder\cover.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\dictBuilder\divsufsort.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\dictBuilder\divsufsort.h"></File>
+          <File RelativePath="..\extlibs\zstd\lib\dictBuilder\fastcover.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\dictBuilder\zdict.c"></File>
+          <File RelativePath="..\extlibs\zstd\lib\dictBuilder\zdict.h"></File>
+        </Filter>
+        <Filter Name="legacy">
+          <File RelativePath="..\extlibs\zstd\lib\legacy\zstd_legacy.h"></File>
+        </Filter>
+      </Filter>
     </Filter>
     <Filter Name="Libs">
       <File RelativePath=".\lz4lib.cpp"></File>
       <File RelativePath=".\lz4lib.h"></File>
+      <File RelativePath=".\zstd_lib.cpp"></File>
+      <File RelativePath=".\zstd_lib.h"></File>
     </Filter>
     <Filter Name="Options">
       <File RelativePath=".\res\winres.h"></File>

@@ -30,6 +30,9 @@
 #define MAX_LOG_LEVEL   LL_WARNING
 #endif
 
+/* block double using xxhash.h */
+#define XXH_STATIC_H_3543687687345
+
 #include "wcxhead.h"
 #include "bst\string.hpp"
 #include "bst\list.hpp"

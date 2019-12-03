@@ -5,6 +5,7 @@
 #include "wcx_arcfile.h"
 #include "wcx_callback.h"
 #include "lz4lib.h"
+#include "zstd_lib.h"
 
 namespace wcx {
 
@@ -15,6 +16,7 @@ public:
   enum type {
     ctUnknown = 0,
     ctLz4     = 1,
+    ctZstd    = 2,
   };
 
   packer() BST_DELETED;  // disable default constructor!
@@ -56,11 +58,17 @@ private:
   int frame_close();
 
   LZ4F_cctx * get_lz4_ctx()   { return m_lz4.ctx.get_ctx(); }
+  ZSTD_CCtx * get_zst_ctx()   { return m_zst.ctx.get_ctx(); }
 
   struct {
     LZ4F_preferences_t  prefs;
     lz4::encode_context ctx;
   } m_lz4;
+
+  struct {
+    ZSTD_parameters     params;
+    zst::encode_context ctx;
+  } m_zst;
 
   size_t      m_block_size;      // read chunk size
   int         m_cpr_level;       // compression level

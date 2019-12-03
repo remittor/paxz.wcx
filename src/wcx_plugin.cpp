@@ -175,13 +175,16 @@ int plugin::pack_files(LPCWSTR PackedFile, LPCWSTR SubPath, LPCWSTR SrcPath, LPC
     
   m_inicfg.copy(cfg);
 
-  wcx::packer::type ctype = wcx::packer::ctLz4;   // create "pax.lz4" on default
-
+  wcx::packer::type ctype = wcx::packer::ctZstd;   // create PAXZ on default
+  
   LPCWSTR p = wcsrchr(PackedFile, L'.');
   if (p) {
     if (_wcsicmp(p, L".pax") == 0) {
       ctype = wcx::packer::ctUnknown;
       cfg.set_uncompress_mode();   // without packing
+    }
+    if (_wcsicmp(p, L".lz4") == 0) {
+      ctype = wcx::packer::ctLz4;
     }
   }
   packer = new wcx::packer(ctype, cfg, Flags, tid, m_ProcessDataProcW);

@@ -14,6 +14,8 @@ packer::packer(type ctype, wcx::cfg & cfg, int Flags, DWORD thread_id, tProcessD
   reset();
   m_Flags = Flags;  
   m_cb.set_ProcessDataProc(callback);
+  m_readed_size = 0;
+  m_output_size = 0;
 }
 
 packer::~packer()
@@ -41,6 +43,9 @@ void packer::reset_ctx(bool full_reset)
   if (m_ctype == ctLz4) {
     m_lz4.ctx.reset();
   }
+  if (m_ctype == ctZstd) {
+    m_zst.ctx.reset(full_reset);
+  }
 }
 
 int packer::set_block_size(SSIZE_T blk_size)
@@ -65,9 +70,15 @@ int packer::set_compression_level(int cpr_level)
     if (cpr_level > LZ4HC_CLEVEL_DEFAULT)
       cpr_level = LZ4HC_CLEVEL_DEFAULT;
   }
+  if (m_ctype == ctZstd) {
+    if (cpr_level > zst::MAX_CLEVEL)
+      cpr_level = zst::MAX_CLEVEL;
+  }
   m_cpr_level = cpr_level;
   return 0;
 }
+
+static ZSTD_inBuffer emptyInput = { NULL, 0, 0 };
 
 int packer::frame_create(UINT64 total_size)
 {
@@ -103,6 +114,27 @@ int packer::frame_create(UINT64 total_size)
     FIN_IF(LZ4F_isError(sz), -12);
   }
 
+  if (m_ctype == ctZstd) { 
+    ZSTD_parameters * params = &m_zst.params;
+    memset(params, 0, sizeof(ZSTD_parameters));
+
+    hr = m_zst.ctx.init(m_cpr_level, NULL);
+    FIN_IF(hr, -10);
+
+    ZSTD_CCtx_setPledgedSrcSize(get_zst_ctx(), total_size);
+
+    size_t bsz = ZSTD_compressBound(m_block_size) + 1024;
+    if (bsz > m_cpr_buf.size()) {
+      FIN_IF(!m_cpr_buf.reserve(bsz + 2048), -11);
+      m_cpr_buf.resize(bsz);
+    }
+
+    ZSTD_outBuffer output = { m_cpr_buf.data(), m_cpr_buf.size(), 0 };
+    sz = ZSTD_compressStream2(get_zst_ctx(), &output, &emptyInput, ZSTD_e_flush);
+    FIN_IF(ZSTD_isError(sz), -12);
+    sz = output.pos;
+  }
+
   DWORD dw;
   BOOL x = WriteFile(m_outFile, m_cpr_buf.c_data(), (DWORD)sz, &dw, NULL);
   FIN_IF(!x, -15);
@@ -127,6 +159,15 @@ int packer::frame_add_data(PBYTE buf, size_t bufsize)
       FIN_IF(bufsize > m_block_size, -23);
       sz = LZ4F_compressUpdate(get_lz4_ctx(), m_cpr_buf.data(), m_cpr_buf.size(), buf, bufsize, NULL);
       FIN_IF(LZ4F_isError(sz), -24);
+    }
+    if (m_ctype == ctZstd) {
+      FIN_IF(get_zst_ctx() == NULL, -22);
+      FIN_IF(bufsize > m_block_size, -23);
+      ZSTD_inBuffer  input  = { buf, bufsize, 0 };
+      ZSTD_outBuffer output = { m_cpr_buf.data(), m_cpr_buf.size(), 0 };
+      sz = ZSTD_compressStream2(get_zst_ctx(), &output, &input, ZSTD_e_flush);
+      FIN_IF(ZSTD_isError(sz), -24);
+      sz = output.pos;
     }
     buf = m_cpr_buf.data();
   } else {
@@ -155,6 +196,12 @@ int packer::frame_close()
   if (m_ctype == ctLz4) {
     sz = LZ4F_compressEnd(get_lz4_ctx(), m_cpr_buf.data(), m_cpr_buf.size(), NULL);
     FIN_IF(LZ4F_isError(sz), -31);
+  }
+  if (m_ctype == ctZstd) {
+    ZSTD_outBuffer output = { m_cpr_buf.data(), m_cpr_buf.size(), 0 };
+    sz = ZSTD_compressStream2(get_zst_ctx(), &output, &emptyInput, ZSTD_e_end);
+    FIN_IF(ZSTD_isError(sz), -31);
+    sz = output.pos;
   }
   DWORD dw;
   BOOL x = WriteFile(m_outFile, m_cpr_buf.c_data(), (DWORD)sz, &dw, NULL);
@@ -199,7 +246,7 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   m_start_time = GetTickCount();
   reset_ctx(true);
 
-  hr = frame_create(0);    /* create LZ4 zero frame */
+  hr = frame_create(0);    /* create LZ4/Zstd zero frame */
   FIN_IF(hr, 0x209100 | E_ECREATE);
   hr = frame_close();
   FIN_IF(hr, 0x209200 | E_ECREATE);
