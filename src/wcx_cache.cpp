@@ -237,7 +237,8 @@ int cache::init(wcx::arcfile * af)
       }
     }
     UINT64 content_size = 0;
-    get_lz4_content_size(hFile, content_size);
+    hr = get_lz4_content_size(hFile, content_size);
+    FIN_IF(hr, hr);
     item = add_file_internal(name, content_size, FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
     FIN_IF(!item, 0x44003300 | E_EREAD);
     item->ctime = m_arcfile.get_ctime();
@@ -275,10 +276,10 @@ int cache::get_lz4_content_size(HANDLE hFile, UINT64 & content_size)
   FIN_IF(!x || dw != rsz, 0x44003500 | E_EREAD);
 
   lz4::frame_info finfo;
-  int data_offset = lz4::get_frame_info(buf, rsz, &finfo);
+  int data_offset = finfo.init(buf, rsz);
   FIN_IF(data_offset <= 0, 0x44003600 | E_EREAD);
 
-  content_size = finfo.contentSize;   // 0 = unknown
+  content_size = finfo.is_unknown_content_size() ? 0 : finfo.contentSize;
   hr = 0;
   
 fin:

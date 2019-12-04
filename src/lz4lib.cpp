@@ -66,39 +66,45 @@ fin:
 // =========================================================================================
 
 /* return error or data_offset */
-int get_frame_info(LPCVOID buf, size_t bufsize, frame_info * finfo)
+int frame_info::init(LPCVOID buf, size_t bufsize)
 {
+  int hr = 0;
   size_t offset = bufsize;
   struct LZ4F_dctx_s dctx;
 
+  header_size = 0;
+  data_offset = 0;
   memset(&dctx, 0, sizeof(dctx));
   dctx.version = LZ4F_VERSION;
   dctx.dStage = dstage_getFrameHeader;
-  LZ4F_errorCode_t sz = LZ4F_getFrameInfo(&dctx, finfo->get_ptr(), buf, &offset);
-  if (LZ4F_isError(sz))
-    return -2;
-  if (sz == 0)
-    return -3;
-  if (offset + 4 > bufsize)
-    return -4;
-  finfo->header_size = offset;
-  UINT32 data_size = *(PUINT32)((PBYTE)buf + offset);
-  if (finfo->frameType == LZ4F_skippableFrame) {
-    finfo->is_compressed = false;
-    finfo->data_size = data_size;
+  LZ4F_errorCode_t ret = LZ4F_getFrameInfo(&dctx, get_ptr(), buf, &offset);
+  FIN_IF(LZ4F_isError(ret), -2);
+  FIN_IF(ret == 0, -3);
+  FIN_IF(offset + 4 > bufsize, -4);
+  header_size = offset;
+  UINT32 blk_size = *(PUINT32)((PBYTE)buf + offset);
+  if (frameType == LZ4F_skippableFrame) {
+    is_compressed = false;
+    data_size = blk_size;
+    contentSize = blk_size; 
     offset += 4;
   } else {
-    if (data_size & LZ4F_BLOCKUNCOMPRESSED_FLAG) {
-      finfo->is_compressed = false;
-      finfo->data_size = data_size & (~LZ4F_BLOCKUNCOMPRESSED_FLAG);
+    if (blk_size & LZ4F_BLOCKUNCOMPRESSED_FLAG) {
+      is_compressed = false;
+      data_size = blk_size & (~LZ4F_BLOCKUNCOMPRESSED_FLAG);
     } else {
-      finfo->is_compressed = true;
-      finfo->data_size = data_size;
+      is_compressed = true;
+      data_size = blk_size;
     }
-    offset += 4;    
+    if (contentSize == 0) /* unknown content size */
+      contentSize = (data_size == 0) ? 0 : CONTENTSIZE_UNKNOWN;
+    offset += 4;
   }
-  finfo->data_offset = offset; 
-  return (int)offset;
+  data_offset = offset;
+  hr = (int)offset;
+
+fin:
+  return hr;
 }
 
 int decode_data_partial(LPCVOID src, size_t srcSize, LPVOID dst, size_t dstSize, size_t dstCapacity)

@@ -202,63 +202,66 @@ int arcfile::update_type(HANDLE hFile)
   }
 
   DWORD magic = *(PDWORD)buf;
-  if (lz4::is_legacy_frame(magic)) {
+
+  m_lz4format = lz4::check_frame_magic(magic);
+  if (m_lz4format == lz4::ffLegacy) {
     m_type = atLz4;
-    m_lz4format = lz4::ffLegacy;
     FIN(0);
   }
 
   // TODO: may be also check LZ4 skippable frames ?
-  FIN_IF(!lz4::check_frame_magic(magic), 0x6081100 | E_EOPEN);
+  FIN_IF(m_lz4format == lz4::ffUnknown, 0x6081100 | E_EOPEN);
 
-  lz4::frame_info finfo;
-  int data_offset = lz4::get_frame_info(buf, rsz, &finfo);
-  FIN_IF(data_offset <= 0, 0x6081200 | E_EOPEN);
-  FIN_IF(finfo.frameType != LZ4F_frame, 0);
+  if (m_lz4format == lz4::ffActual) {
+    lz4::frame_info finfo;
+    int data_offset = finfo.init(buf, rsz);
+    FIN_IF(data_offset <= 0, 0x6081200 | E_EOPEN);
+    FIN_IF(finfo.frameType != LZ4F_frame, 0);
 
-  m_type = atLz4;
-  m_lz4format = lz4::ffActual;
-  
-  if (finfo.data_size) {
-    int sz = 0;
-    int srcSize = (int)rsz - data_offset;
-    if (finfo.data_size < (size_t)srcSize)
-      srcSize = (int)finfo.data_size;
-    if (finfo.is_compressed) { 
-      sz = lz4::decode_data_partial(buf + data_offset, srcSize, dst, sizeof(dst) - reserve_size, sizeof(dst));
-      FIN_IF(sz <= 0, 0);
+    m_type = atLz4;
+
+    if (finfo.data_size) {
+      int sz = 0;
+      int srcSize = (int)rsz - data_offset;
+      if (finfo.data_size < (size_t)srcSize)
+        srcSize = (int)finfo.data_size;
+      if (finfo.is_compressed) { 
+        sz = lz4::decode_data_partial(buf + data_offset, srcSize, dst, sizeof(dst) - reserve_size, sizeof(dst));
+        FIN_IF(sz <= 0, 0);
+      } else {
+        sz = (int)tar::BLOCKSIZE;
+        FIN_IF(sz > srcSize, 0);
+        memcpy(dst, buf + data_offset, sz);
+      }
+      FIN_IF(sz < tar::BLOCKSIZE, 0);
+
+      hr = tar::check_tar_header(dst, sz, true);
+      FIN_IF(hr <= 0, 0);
+
+      m_tarformat = (tar::Format)hr;
     } else {
-      sz = (int)tar::BLOCKSIZE;
-      FIN_IF(sz > srcSize, 0);
-      memcpy(dst, buf + data_offset, sz);
+      FIN_IF(finfo.blockChecksumFlag == 0, 0);
+      FIN_IF(finfo.contentChecksumFlag == 0, 0);
+      FIN_IF(data_offset + sizeof(DWORD) > rsz, 0);
+      DWORD frame_hash = *(PDWORD)(buf + data_offset);
+      FIN_IF(frame_hash != 0x02CC5D05, 0);    // hash for zero content
+      data_offset += sizeof(DWORD);
+
+      FIN_IF(data_offset + sizeof(paxz::frame_root) > rsz, 0);
+      memcpy(&m_paxz, buf + data_offset, sizeof(paxz::frame_root));
+
+      FIN_IF(m_paxz.is_valid(0) == false, 0);
+      FIN_IF(m_paxz.version != 0, 0);
+      FIN_IF(m_paxz.cipher_algo, 0);   // TODO: support cipher ChaCha20
+      FIN_IF(m_paxz.pbkdf2_iter, 0);   // TODO: support PBKDF2 algo
+      FIN_IF(m_paxz.flags, 0);
+
+      m_type = atPaxLz4;
+      m_tarformat = (tar::Format)tar::POSIX_FORMAT;  /* PAX */
+      m_data_begin = data_offset + sizeof(paxz::frame_root);
     }
-    FIN_IF(sz < tar::BLOCKSIZE, 0);
-    
-    hr = tar::check_tar_header(dst, sz, true);
-    FIN_IF(hr <= 0, 0);
-    
-    m_tarformat = (tar::Format)hr;
-  } else {
-    FIN_IF(finfo.blockChecksumFlag == 0, 0);
-    FIN_IF(finfo.contentChecksumFlag == 0, 0);
-    FIN_IF(data_offset + sizeof(DWORD) > rsz, 0);
-    DWORD frame_hash = *(PDWORD)(buf + data_offset);
-    FIN_IF(frame_hash != 0x02CC5D05, 0);    // hash for zero content
-    data_offset += sizeof(DWORD);
-
-    FIN_IF(data_offset + sizeof(paxz::frame_root) > rsz, 0);
-    memcpy(&m_paxz, buf + data_offset, sizeof(paxz::frame_root));
-
-    FIN_IF(m_paxz.is_valid(0) == false, 0);
-    FIN_IF(m_paxz.version != 0, 0);
-    FIN_IF(m_paxz.cipher_algo, 0);   // TODO: support cipher ChaCha20
-    FIN_IF(m_paxz.pbkdf2_iter, 0);   // TODO: support PBKDF2 algo
-    FIN_IF(m_paxz.flags, 0);
-    
-    m_type = atPaxLz4;
-    m_tarformat = (tar::Format)tar::POSIX_FORMAT;  /* PAX */
-    m_data_begin = data_offset + sizeof(paxz::frame_root);
   }
+
   hr = 0;
 
 fin:
