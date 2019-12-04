@@ -807,7 +807,7 @@ int check_tar_header(LPCVOID buf, size_t size, bool cksum)
 {
   const DWORD c_magic1  = 'atsu';      // "usta"
   const DWORD c_magic2  = 0x30300072;  // "ustar#00"   # = Null
-  const DWORD c_magic2g = 0x00303072;  // "ustar  #"   # = Null
+  const DWORD c_magic2g = 0x00202072;  // "ustar  #"   # = Null
 
   int hr = 0;
   int fmt = UNKNOWN_FORMAT;
