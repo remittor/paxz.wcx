@@ -154,7 +154,7 @@
         EnableEnhancedInstructionSet="0"
         RuntimeTypeInfo="false"
         UsePrecompiledHeader="0"
-        WarningLevel="2"
+        WarningLevel="3"
         DebugInformationFormat="3"
         CompileAs="0"
       />
