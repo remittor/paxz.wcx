@@ -223,7 +223,8 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   int ret;
   size_t fn_num = 0;
   tar::pax_encode pax;
-  paxz::frame_root aux_frame;
+  paxz::frame_pax paxframe;
+  paxz::frame_end endframe;
   DWORD dw;
 
   FIN_IF(!m_AddListSize, 0x201000 | E_NO_FILES);
@@ -253,8 +254,8 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
     hr = frame_close();
     FIN_IF(hr, 0x209200 | E_ECREATE);
     
-    int frlen = aux_frame.init_pax(0, 0, false);
-    x = WriteFile(m_outFile, &aux_frame, frlen, &dw, NULL);
+    int frlen = paxframe.init(0, 0, false);
+    x = WriteFile(m_outFile, &paxframe, frlen, &dw, NULL);
     FIN_IF(!x || dw != frlen, 0x209300 | E_ECREATE);
   }
   if (m_ext_buf.empty()) {
@@ -320,17 +321,17 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
 
     tar::fileinfo fi;
     fi.realsize = 0;
-    size_t hsz = m_ext_buf.size();
-    hr = pax.create_header(hFile, &fi, NULL, fn, m_ext_buf.data(), hsz);
+    size_t hdr_size = m_ext_buf.size();
+    hr = pax.create_header(hFile, &fi, NULL, fn, m_ext_buf.data(), hdr_size);
     FIN_IF(hr, hr | E_ECREATE);
-    FIN_IF(hsz > m_block_size, 0x231000 | E_ECREATE);
+    FIN_IF(hdr_size > m_block_size, 0x231000 | E_ECREATE);
 
     UINT64 fsize = fi.size;
-    UINT64 content_size = tar::blocksize_round64(hsz + fsize);
+    UINT64 content_size = tar::blocksize_round64(hdr_size + fsize);
     
     hr = frame_create(content_size);
     FIN_IF(hr, 0x232000 | E_ECREATE);    
-    hr = frame_add_data(m_ext_buf.data(), hsz);
+    hr = frame_add_data(m_ext_buf.data(), hdr_size);
     FIN_IF(hr, 0x233000 | E_ECREATE);
 
     if (is_dir || fsize == 0) {
@@ -374,8 +375,8 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   }
 
   if (m_cpr_level >= 0) {
-    int frlen = aux_frame.init_end(0);
-    BOOL x = WriteFile(m_outFile, &aux_frame, frlen, &dw, NULL);
+    int frlen = endframe.init(0);
+    BOOL x = WriteFile(m_outFile, &endframe, frlen, &dw, NULL);
     FIN_IF(!x || dw != frlen, 0x279500 | E_ECREATE);
   }
   m_delete_out_file = false;

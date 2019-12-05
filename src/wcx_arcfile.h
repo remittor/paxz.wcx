@@ -78,7 +78,7 @@ private:
   ArcType        m_type;
   lz4::Format    m_lz4format;
   tar::Format    m_tarformat;
-  paxz::frame_root m_paxz;
+  paxz::frame_pax m_paxz;
   size_t         m_data_begin;
 };
 

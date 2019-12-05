@@ -247,18 +247,18 @@ int arcfile::update_type(HANDLE hFile)
       FIN_IF(frame_hash != 0x02CC5D05, 0);    // hash for zero content
       data_offset += sizeof(DWORD);
 
-      FIN_IF(data_offset + sizeof(paxz::frame_root) > rsz, 0);
-      memcpy(&m_paxz, buf + data_offset, sizeof(paxz::frame_root));
+      FIN_IF(data_offset + sizeof(paxz::frame_pax) > rsz, 0);
+      memcpy(&m_paxz, buf + data_offset, sizeof(paxz::frame_pax));
 
       FIN_IF(m_paxz.is_valid(0) == false, 0);
-      FIN_IF(m_paxz.version != 0, 0);
       FIN_IF(m_paxz.cipher_algo, 0);   // TODO: support cipher ChaCha20
       FIN_IF(m_paxz.pbkdf2_iter, 0);   // TODO: support PBKDF2 algo
-      FIN_IF(m_paxz.flags, 0);
+      FIN_IF(m_paxz.flags & paxz::FLAG_DICT_FOR_HEADER, 0);
+      FIN_IF(m_paxz.flags & paxz::FLAG_DICT_FOR_CONTENT, 0);
 
       m_type = atPaxLz4;
       m_tarformat = (tar::Format)tar::POSIX_FORMAT;  /* PAX */
-      m_data_begin = data_offset + sizeof(paxz::frame_root);
+      m_data_begin = data_offset + sizeof(paxz::frame_pax);
     }
   }
 
