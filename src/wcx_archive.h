@@ -55,7 +55,9 @@ public:
   bst::buf       m_dst;
   bst::buf       m_in_buf;
   bst::buf       m_out_buf;
-  lz4::decode_context m_ctx;
+  struct {
+    lz4::decode_context ctx;
+  } m_lz4;
 };
 
 typedef bst::list<archive> archive_list;

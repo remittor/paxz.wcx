@@ -322,7 +322,6 @@ fin:
 int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
 {
   int hr = 0;
-  int ret;
   DWORD magicNumber;
   size_t nbReadBytes = 0;
   union {
@@ -330,7 +329,6 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
     LARGE_INTEGER fpos;
   };
   DWORD dw;
-  BOOL x;
   UINT64 data_size = 0;
 
   pos = 0;
@@ -341,26 +339,29 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   FIN_IF(!hDstFile, 0x143000 | E_ECREATE);
   m_delete_out_file = false;
 
-  hr = m_ctx.init();
-  FIN_IF(hr, 0x144000 | E_EREAD);
+  int ret = m_cb.tell_process_data(0);
+  FIN_IF(ret == psCancel, 0);   // user press Cancel
 
   while (1) {
-    x = ReadFile(m_file, &magicNumber, sizeof(magicNumber), (PDWORD)&nbReadBytes, NULL);
-    FIN_IF(!x || nbReadBytes != sizeof(magicNumber), 0);
+    BOOL x = ReadFile(m_file, &magicNumber, sizeof(magicNumber), (PDWORD)&nbReadBytes, NULL);
+    FIN_IF(!x, 0x145000 | E_EREAD);
+    FIN_IF(nbReadBytes != sizeof(magicNumber), 0);  /* EOF */
     pos += sizeof(magicNumber);
 
     if ((magicNumber & lz4::LZ4IO_SKIPPABLEMASK) == lz4::LZ4IO_SKIPPABLE0)
       magicNumber = lz4::LZ4IO_SKIPPABLE0;
-    
+
     switch (magicNumber) {
     case lz4::LZ4IO_MAGICNUMBER: {
+      hr = m_lz4.ctx.init();
+      FIN_IF(hr, 0x144400 | E_EREAD);
       LZ4F_errorCode_t nextToLoad;
       size_t inSize = lz4::MAGICNUMBER_SIZE;
       size_t outSize= 0;
       memcpy(m_buf.data(), &magicNumber, sizeof(magicNumber));
-      nextToLoad = LZ4F_decompress(m_ctx.get_ctx(), m_dst.data(), &outSize, m_buf.c_data(), &inSize, NULL);
+      nextToLoad = LZ4F_decompress(m_lz4.ctx.get_ctx(), m_dst.data(), &outSize, m_buf.c_data(), &inSize, NULL);
       FIN_IF(LZ4F_isError(nextToLoad), 0x147000 | E_EREAD);
-      
+
       UINT64 end = file_size;
       while (nextToLoad) {
         size_t readSize = 0;
@@ -370,9 +371,7 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
         if (nextToLoad > m_buf.size())
           nextToLoad = m_buf.size();
         FIN_IF(pos + nextToLoad > end, 0x148000 | E_EREAD);
-        //if (pos + nextToLoad > end)
-        //  nextToLoad = (size_t)(end - pos);
-        x = ReadFile(m_file, m_buf.data(), (DWORD)nextToLoad, (PDWORD)&readSize, NULL);
+        BOOL x = ReadFile(m_file, m_buf.data(), (DWORD)nextToLoad, (PDWORD)&readSize, NULL);
         FIN_IF(!x || nextToLoad != readSize, 0x149000 | E_EREAD);
         pos += readSize;
 
@@ -380,35 +379,35 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
           size_t remaining = readSize - offset;
           decodedBytes = m_dst.size();
           LPBYTE srcBuf = (LPBYTE)m_buf.data() + offset;
-          nextToLoad = LZ4F_decompress(m_ctx.get_ctx(), m_dst.data(), &decodedBytes, srcBuf, &remaining, NULL);
-          LZ4F_frameInfo_t * fi = m_ctx.get_frame_info();
+          nextToLoad = LZ4F_decompress(m_lz4.ctx.get_ctx(), m_dst.data(), &decodedBytes, srcBuf, &remaining, NULL);
+          LZ4F_frameInfo_t * fi = m_lz4.ctx.get_frame_info();
           FIN_IF(LZ4F_isError(nextToLoad), 0x151000 | E_EREAD);
           offset += remaining;
           if (decodedBytes) {
-            x = WriteFile(hDstFile, m_dst.c_data(), (DWORD)decodedBytes, &dw, NULL);
+            BOOL x = WriteFile(hDstFile, m_dst.c_data(), (DWORD)decodedBytes, &dw, NULL);
             FIN_IF(!x || decodedBytes != dw, 0x152000 | E_EWRITE);
           }
           if (!nextToLoad)
             break;
         } 
-        ret = m_cb.tell_process_data(pos);
+        int ret = m_cb.tell_process_data(pos);
         FIN_IF(ret == psCancel, 0);   // user press Cancel
       }
-      break;              
+      break;
     }
-    
+
     case lz4::LZ4IO_SKIPPABLE0: {
       DWORD size = 0;
-      x = ReadFile(m_file, &size, sizeof(size), (PDWORD)&nbReadBytes, NULL);
+      BOOL x = ReadFile(m_file, &size, sizeof(size), (PDWORD)&nbReadBytes, NULL);
       FIN_IF(!x || nbReadBytes != sizeof(size), 0x155000 | E_EREAD);
       pos += sizeof(size) + size;
-      dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
+      DWORD dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
       FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x156000 | E_EREAD);
-      ret = m_cb.tell_process_data(pos);
+      int ret = m_cb.tell_process_data(pos);
       FIN_IF(ret == psCancel, 0);   // user press Cancel
       break;
-    } 
-    
+    }
+
     case lz4::LEGACY_MAGICNUMBER: {
       size_t insz = LZ4_compressBound(lz4::LEGACY_BLOCKSIZE);
       size_t sz = m_in_buf.resize(insz);
@@ -417,43 +416,43 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
       FIN_IF(sz == bst::npos, 0x162000 | E_NO_MEMORY);
       while (1) {
         DWORD blockSize;
-        x = ReadFile(m_file, &blockSize, sizeof(blockSize), (PDWORD)&nbReadBytes, NULL);
+        BOOL x = ReadFile(m_file, &blockSize, sizeof(blockSize), (PDWORD)&nbReadBytes, NULL);
         FIN_IF(!x || nbReadBytes != sizeof(blockSize), 0x163000 | E_EREAD);
         if (blockSize > LZ4_COMPRESSBOUND(lz4::LEGACY_BLOCKSIZE)) {
           /* Cannot read next block : maybe new stream ? */
-          dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
+          DWORD dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
           FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x164000 | E_EREAD);
           break;
         }
         pos += sizeof(blockSize);
-        x = ReadFile(m_file, m_in_buf.data(), blockSize, (PDWORD)&nbReadBytes, NULL);
-        FIN_IF(!x || nbReadBytes != blockSize, 0x165000 | E_EREAD);
+        BOOL v = ReadFile(m_file, m_in_buf.data(), blockSize, (PDWORD)&nbReadBytes, NULL);
+        FIN_IF(!v || nbReadBytes != blockSize, 0x165000 | E_EREAD);
         pos += blockSize;
-        
+
         int decodeSize = LZ4_decompress_safe((LPCSTR)m_in_buf.c_data(), (LPSTR)m_out_buf.data(), (int)blockSize, lz4::LEGACY_BLOCKSIZE);
         FIN_IF(decodeSize < 0, 0x166000 | E_EREAD);
         if (decodeSize > 0) {
-          x = WriteFile(hDstFile, m_out_buf.c_data(), (DWORD)decodeSize, &dw, NULL);
+          BOOL x = WriteFile(hDstFile, m_out_buf.c_data(), (DWORD)decodeSize, &dw, NULL);
           FIN_IF(!x || decodeSize != dw, 0x167000 | E_EWRITE);
         }
 
-        ret = m_cb.tell_process_data(pos);
+        int ret = m_cb.tell_process_data(pos);
         FIN_IF(ret == psCancel, 0);   // user press Cancel
       }
       break;
     }
-    
+
     default:
       FIN(0);     // ignore trash on end file
-    
+
     } /* switch */
   }
-  
+
   hr = 0;
   m_delete_out_file = false;
 
 fin:
-  if (hr > 0x144000) {
+  if (hr >= 0x145000) {
     hr = 0;   // ignore ALL errors on unpacking LZ4 stream
     m_delete_out_file = false;
   }  
@@ -484,7 +483,7 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   int ret = m_cb.tell_process_data(0);
   FIN_IF(ret == psCancel, 0);   // user press Cancel
 
-  hr = m_ctx.init();
+  hr = m_lz4.ctx.init();
   FIN_IF(hr, 0x173000 | E_EREAD);
 
   UINT64 end = file_size;
@@ -498,7 +497,7 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   size_t inSize = lz4::MAGICNUMBER_SIZE;
   size_t outSize= 0;
   memcpy(m_buf.data(), &magicNumber, sizeof(magicNumber));
-  nextToLoad = LZ4F_decompress(m_ctx.get_ctx(), m_dst.data(), &outSize, m_buf.c_data(), &inSize, NULL);
+  nextToLoad = LZ4F_decompress(m_lz4.ctx.get_ctx(), m_dst.data(), &outSize, m_buf.c_data(), &inSize, NULL);
   FIN_IF(LZ4F_isError(nextToLoad), 0x177000 | E_EREAD);
 
   while (nextToLoad) {
@@ -509,8 +508,6 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
     if (nextToLoad > m_buf.size())
       nextToLoad = m_buf.size();
     FIN_IF(pos + nextToLoad > end, 0x178000 | E_EREAD);
-    //if (pos + nextToLoad > end)
-    //  nextToLoad = (size_t)(end - pos);
     BOOL x = ReadFile(m_file, m_buf.data(), (DWORD)nextToLoad, (PDWORD)&readSize, NULL);
     FIN_IF(!x || nextToLoad != readSize, 0x179000 | E_EREAD);
     pos += readSize;
@@ -519,15 +516,15 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
       size_t remaining = readSize - offset;
       decodedBytes = m_dst.size();
       LPBYTE srcBuf = (LPBYTE)m_buf.data() + offset;
-      nextToLoad = LZ4F_decompress(m_ctx.get_ctx(), m_dst.data(), &decodedBytes, srcBuf, &remaining, NULL);
-      LZ4F_frameInfo_t * fi = m_ctx.get_frame_info();
+      nextToLoad = LZ4F_decompress(m_lz4.ctx.get_ctx(), m_dst.data(), &decodedBytes, srcBuf, &remaining, NULL);
+      LZ4F_frameInfo_t * fi = m_lz4.ctx.get_frame_info();
       FIN_IF(LZ4F_isError(nextToLoad), 0x181000 | E_EREAD);
       offset += remaining;
       if (decodedBytes) {
         data_size += decodedBytes;
         if (written || data_size > m_cur_file->pax.hdr.size) {
           LPCSTR buf = (LPCSTR)m_dst.c_data();
-          size_t bufsize = decodedBytes;          
+          size_t bufsize = decodedBytes;
           if (written == 0) {
             size_t offset = (size_t)data_size - m_cur_file->pax.hdr.size;
             if (offset != decodedBytes) {
@@ -543,7 +540,7 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
             BOOL x = WriteFile(hDstFile, buf, (DWORD)bufsize, &dw, NULL);
             FIN_IF(!x || bufsize != dw, 0x182000 | E_EWRITE);
             written += bufsize;
-            ret = m_cb.tell_process_data(written);
+            int ret = m_cb.tell_process_data(written);
             FIN_IF(ret == psCancel, 0);   // user press Cancel
           }
         }

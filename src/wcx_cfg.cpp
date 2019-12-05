@@ -106,7 +106,6 @@ wcx::cfg inicfg::get_cfg()
 int inicfg::init(HMODULE mod_addr)
 {
   int hr = 0;
-  size_t pos, sz;
 
   m_wcx_path.clear();
   DWORD nlen = GetModuleFileNameW(mod_addr, m_wcx_path.data(), MAX_PATH);
@@ -114,7 +113,7 @@ int inicfg::init(HMODULE mod_addr)
   FIN_IF(GetLastError() != ERROR_SUCCESS, -3);  
   m_wcx_path.fix_length();
   //WLOGd(L"wcx path = '%s'", m_wcx_path.c_str());
-  pos = m_wcx_path.rfind(L'\\');
+  size_t pos = m_wcx_path.rfind(L'\\');
   m_wcx_path.resize(pos + 1);
   
   m_ini_file.assign(m_wcx_path);
