@@ -178,8 +178,7 @@ int cache::init(wcx::arcfile * af)
 {
   int hr = 0;
   HANDLE hFile = NULL;
-  WCHAR name[MAX_PATH + 16];
-  cache_item * item;
+  bst::filename name;
 
   bst::scoped_write_lock lock(m_mutex);   /* enter to exclusive lock */
   
@@ -212,39 +211,42 @@ int cache::init(wcx::arcfile * af)
   
   if (m_arcfile.get_type() == atPaxLz4) {
     hr = scan_paxlz4_file(hFile);
-    if (hr) {
-      WLOGw(L"%S: Incorrect PaxLz4 archive \"%s\" (err = 0x%X) ", __func__, get_name(), hr);
-      clear();
-      m_arcfile.set_type(atLz4);
-      hr = 0;
-    }
+    FIN_IF(!hr, 0);
+    WLOGw(L"%S: Incorrect PaxLz4 archive \"%s\" (err = 0x%X) ", __func__, get_name(), hr);
+    clear();
+    m_arcfile.set_type(atLz4);
+    hr = 0;
   }
-  
-  if (m_arcfile.get_type() == atLz4) {
-    size_t nlen = wcslen(m_arcfile.get_name());
-    FIN_IF(nlen == 0, 0x44003000 | E_EREAD);
-    FIN_IF(nlen >= MAX_PATH, 0x44003100 | E_EREAD);
-    wcscpy(name, m_arcfile.get_name());
-    LPWSTR ext = wcsrchr(name, L'.');
-    if (ext && ext != name) {
-      *ext = 0;
+
+  name.assign(m_arcfile.get_name());
+  FIN_IF(name.length() == 0, 0x44003000 | E_EREAD);
+  size_t pos = name.rfind(L'.');
+  if (pos != bst::npos && pos > 0) {
+    name.resize(pos);
+    if (name.length() + 4 <= 255) {
       if (m_arcfile.get_tar_format() != tar::UNKNOWN_FORMAT) {
         if (m_arcfile.get_tar_format() == tar::POSIX_FORMAT) {
-          wcscat(name, L".pax");
+          name.append(L".pax");
         } else {
-          wcscat(name, L".tar");
+          name.append(L".tar");
         }
       }
     }
-    UINT64 content_size = 0;
+  }
+
+  UINT64 content_size = 0;
+  DWORD file_attr = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE;
+
+  if (m_arcfile.get_type() == atLz4) {
     hr = get_lz4_content_size(hFile, content_size);
     FIN_IF(hr, hr);
-    item = add_file_internal(name, content_size, FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE);
-    FIN_IF(!item, 0x44003300 | E_EREAD);
-    item->ctime = m_arcfile.get_ctime();
-    item->mtime = m_arcfile.get_mtime();
   }
-  
+
+  cache_item * item = add_file_internal(name.c_str(), content_size, file_attr);
+  FIN_IF(!item, 0x44003300 | E_EREAD);
+  item->ctime = m_arcfile.get_ctime();
+  item->mtime = m_arcfile.get_mtime();
+
   hr = 0;
 
 fin:
