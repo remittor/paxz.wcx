@@ -381,20 +381,18 @@ int cache::scan_pax_file(HANDLE hFile)
       break;
 
     hr = pax.add_header(buf.data(), sz);
-    FIN_IF(hr < 0, 0x45011300 | E_EOPEN);
-
-    if (hr == 1) {
+    FIN_IF(hr, 0x45011300 | E_EOPEN);
+    if (pax.is_big_header()) {
       FIN_IF(pax.m_header_size >= buf_size, 0x45012100 | E_EOPEN);
       LPBYTE dst = buf.data() + sz;
       sz = pax.m_header_size - sz;
       FIN_IF(pad < pax.m_header_size, 0x45012200 | E_EOPEN);
-      x = ReadFile(hFile, dst, (DWORD)sz, &dw, NULL);
+      BOOL x = ReadFile(hFile, dst, (DWORD)sz, &dw, NULL);
       FIN_IF(!x || dw != sz, 0x45012300 | E_EOPEN);
       read_size += sz;
 
       hr = pax.add_header(buf.data(), pax.m_header_size);
-      FIN_IF(hr < 0, 0x45012500 | E_EOPEN);
-      FIN_IF(hr, 0x45012600 | E_EOPEN);
+      FIN_IF(hr, 0x45012500 | E_EOPEN);
     }
 
     UINT64 frame_size = pax.m_header_size + tar::blocksize_round64(pax.m_info.size);
@@ -506,14 +504,13 @@ int cache::scan_paxlz4_file(HANDLE hFile)
 
     pax.clear();
     hr = pax.add_header(ph, plen);
-    FIN_IF(hr < 0, 0x44017100 | E_EOPEN);
-    if (hr == 1) {
+    FIN_IF(hr, 0x44017100 | E_EOPEN);
+    if (pax.is_big_header()) {
       FIN_IF(pax.m_header_size != plen, 0x44017200 | E_EOPEN);
       hr = pax.add_header(ph, plen);
-      FIN_IF(hr < 0, 0x44017300 | E_EOPEN);
-      FIN_IF(hr, 0x44017400 | E_EOPEN);
-    }  
-     
+      FIN_IF(hr, 0x44017300 | E_EOPEN);
+    }
+
     while(1) {
       DWORD blksize;
       BOOL x = ReadFile(hFile, &blksize, sizeof(blksize), &dw, NULL);

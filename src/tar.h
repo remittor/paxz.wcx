@@ -277,7 +277,9 @@ public:
   LPCSTR get_name()        { return m_name ? (LPCSTR)m_buf + m_name : NULL; }
   size_t get_name_len()    { return m_name ? (int)m_name_len : 0; }
   size_t get_header_size() { return m_header_size; }
-  bool   is_huge_data_size();
+
+  bool   is_big_header()     { return m_header_size > BLOCKSIZE; }
+  bool   is_huge_data_size() { return m_info.size == OLD_SIZE_LIMIT; }
 
   LPBYTE     m_buf;
   Format     m_format;

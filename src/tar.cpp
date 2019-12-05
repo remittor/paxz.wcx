@@ -1041,10 +1041,6 @@ fin:
   return hr;
 }
 
-bool pax_decode::is_huge_data_size()
-{
-  return m_info.size == OLD_SIZE_LIMIT;
-}
 
 /* return: negative = error, 0 = header is readed, 1 = required addon header */
 int pax_decode::add_header(LPCVOID buf, size_t size)
@@ -1069,7 +1065,7 @@ int pax_decode::add_header(LPCVOID buf, size_t size)
       m_pax_type = m_type;;
       m_type = REGULAR;
       m_header_size += tar::BLOCKSIZE;
-      return 1;
+      return 0;
     }
     return 0;
   }
