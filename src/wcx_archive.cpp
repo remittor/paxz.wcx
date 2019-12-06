@@ -277,7 +277,7 @@ int archive::extract_pax(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   UINT64 data_size = 0;
   UINT64 written = 0;
 
-  pos = m_cur_file->pax.pos + m_cur_file->pax.hdr.size;    
+  pos = m_cur_file->pax.pos + m_cur_file->pax.hdr_size;    
   FIN_IF(pos >= file_size, 0x131000 | E_EOPEN);
   fpos.QuadPart = pos;
   dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
@@ -469,15 +469,18 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
     LARGE_INTEGER fpos;
   };
   DWORD dw;
-  UINT64 data_size = 0;
   UINT64 written = 0;
 
-  pos = m_cur_file->pax.pos;
+  pos = m_cur_file->pax.pos + m_cur_file->pax.hdr_p_size;
   dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
   FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x171000 | E_EOPEN);
 
   hDstFile = create_new_file(fn);
   FIN_IF(!hDstFile, 0x172000 | E_ECREATE);
+  if (m_cur_file->data_size == 0 || m_cur_file->pack_size == m_cur_file->pax.hdr_p_size) {
+    m_delete_out_file = false;   /* file have zero len */
+    FIN(0);
+  }
   m_delete_out_file = true;
 
   int ret = m_cb.tell_process_data(0);
@@ -517,33 +520,19 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
       decodedBytes = m_dst.size();
       LPBYTE srcBuf = (LPBYTE)m_buf.data() + offset;
       nextToLoad = LZ4F_decompress(m_lz4.ctx.get_ctx(), m_dst.data(), &decodedBytes, srcBuf, &remaining, NULL);
-      LZ4F_frameInfo_t * fi = m_lz4.ctx.get_frame_info();
       FIN_IF(LZ4F_isError(nextToLoad), 0x181000 | E_EREAD);
       offset += remaining;
-      if (decodedBytes) {
-        data_size += decodedBytes;
-        if (written || data_size > m_cur_file->pax.hdr.size) {
-          LPCSTR buf = (LPCSTR)m_dst.c_data();
-          size_t bufsize = decodedBytes;
-          if (written == 0) {
-            size_t offset = (size_t)data_size - m_cur_file->pax.hdr.size;
-            if (offset != decodedBytes) {
-              buf += offset;
-              bufsize -= offset;
-            }
-          }
-          if (written + bufsize >= m_cur_file->data_size) {
-            bufsize = (size_t)(m_cur_file->data_size - written);
-            nextToLoad = 0;  /* stop decoding */
-          }
-          if (bufsize) {
-            BOOL x = WriteFile(hDstFile, buf, (DWORD)bufsize, &dw, NULL);
-            FIN_IF(!x || bufsize != dw, 0x182000 | E_EWRITE);
-            written += bufsize;
-            int ret = m_cb.tell_process_data(written);
-            FIN_IF(ret == psCancel, 0);   // user press Cancel
-          }
-        }
+      size_t sz = decodedBytes;
+      if (written + sz >= m_cur_file->data_size) {
+        sz = (size_t)(m_cur_file->data_size - written);
+        nextToLoad = 0;  /* stop decoding */
+      }
+      if (sz) {
+        BOOL x = WriteFile(hDstFile, m_dst.data(), (DWORD)sz, &dw, NULL);
+        FIN_IF(!x || dw != (DWORD)sz, 0x182000 | E_EWRITE);
+        written += sz;
+        int ret = m_cb.tell_process_data(written);
+        FIN_IF(ret == psCancel, 0);   // user press Cancel
       }
       if (!nextToLoad)
         break;

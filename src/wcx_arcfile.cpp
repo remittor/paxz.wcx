@@ -250,7 +250,7 @@ int arcfile::update_type(HANDLE hFile)
       FIN_IF(data_offset + sizeof(paxz::frame_pax) > rsz, 0);
       memcpy(&m_paxz, buf + data_offset, sizeof(paxz::frame_pax));
 
-      FIN_IF(m_paxz.is_valid(0) == false, 0);
+      FIN_IF(m_paxz.is_valid(0, paxz::CURRENT_VERSION) == false, 0);
       FIN_IF(m_paxz.cipher_algo, 0);   // TODO: support cipher ChaCha20
       FIN_IF(m_paxz.pbkdf2_iter, 0);   // TODO: support PBKDF2 algo
       FIN_IF(m_paxz.flags & paxz::FLAG_DICT_FOR_HEADER, 0);

@@ -226,6 +226,8 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   paxz::frame_pax paxframe;
   paxz::frame_end endframe;
   DWORD dw;
+  const char paxz_ver = 0;   /* actual version paxz format */
+  int paxz_flags = 0;
 
   FIN_IF(!m_AddListSize, 0x201000 | E_NO_FILES);
   
@@ -249,14 +251,14 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   reset_ctx(true);
 
   if (m_cpr_level >= 0) {
-    hr = frame_create(0);    /* create LZ4/Zstd zero frame */
-    FIN_IF(hr, 0x209100 | E_ECREATE);
-    hr = frame_close();
-    FIN_IF(hr, 0x209200 | E_ECREATE);
-    
-    int frlen = paxframe.init(0, 0, false);
-    x = WriteFile(m_outFile, &paxframe, frlen, &dw, NULL);
+    FIN_IF(frame_create(0), 0x209100 | E_ECREATE);    /* create LZ4/Zstd zero frame */
+    FIN_IF(frame_close(), 0x209200 | E_ECREATE);    
+    int frlen = paxframe.init(paxz_ver, paxz_flags, false);
+    BOOL x = WriteFile(m_outFile, &paxframe, frlen, &dw, NULL);
     FIN_IF(!x || dw != frlen, 0x209300 | E_ECREATE);
+    if (paxz_flags & paxz::FLAG_DICT_FOR_HEADER) {
+      // TODO: add dictionary support!
+    }
   }
   if (m_ext_buf.empty()) {
     const size_t bufsize = 2*1024*1024;
@@ -326,20 +328,17 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
     FIN_IF(hr, hr | E_ECREATE);
     FIN_IF(hdr_size > m_block_size, 0x231000 | E_ECREATE);
 
-    UINT64 fsize = fi.size;
-    UINT64 content_size = tar::blocksize_round64(hdr_size + fsize);
-    
-    hr = frame_create(content_size);
-    FIN_IF(hr, 0x232000 | E_ECREATE);    
-    hr = frame_add_data(m_ext_buf.data(), hdr_size);
-    FIN_IF(hr, 0x233000 | E_ECREATE);
+    FIN_IF(frame_create(hdr_size), 0x232100 | E_ECREATE);
+    FIN_IF(frame_add_data(m_ext_buf.data(), hdr_size), 0x232200 | E_ECREATE);
+    FIN_IF(frame_close(), 0x232300 | E_ECREATE);
 
-    if (is_dir || fsize == 0) {
-      hr = frame_close();
-      FIN_IF(hr, 0x234000 | E_ECREATE);
+    UINT64 fsize = fi.size;
+    if (is_dir || fsize == 0)
       continue;
-    }
-    
+
+    UINT64 content_size = tar::blocksize_round64(fsize);
+    FIN_IF(frame_create(content_size), 0x233100 | E_ECREATE);
+
     m_cb.set_file_name(fn);
     ret = m_cb.tell_process_data(0);
     FIN_IF(ret == psCancel, 0);   // user press Cancel
@@ -375,7 +374,7 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   }
 
   if (m_cpr_level >= 0) {
-    int frlen = endframe.init(0);
+    int frlen = endframe.init(paxz_ver);
     BOOL x = WriteFile(m_outFile, &endframe, frlen, &dw, NULL);
     FIN_IF(!x || dw != frlen, 0x279500 | E_ECREATE);
   }

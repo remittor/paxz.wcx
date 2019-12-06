@@ -39,11 +39,8 @@ public:
 
 typedef struct _pax_item {
   UINT64     pos;
-  UINT64     frame_size; // frame size
-  struct {
-    UINT32   pack_size;  // PAX header packed size
-    UINT32   size;       // PAX header unpacked size
-  } hdr;
+  UINT32     hdr_p_size; // size of packed_header
+  UINT32     hdr_size;   // size of orig PAX header
   UINT64     realsize;   // SCHILY.realsize
 } pax_item;
 
@@ -54,8 +51,8 @@ struct cache_item {
   BYTE       flags;
   BYTE       type;
   pax_item   pax;
-  UINT64     data_size; // file size (frame_content_size - hdr.size)
-  UINT64     pack_size; //           (frame_size - hdr.pack_size)
+  UINT64     data_size; // orig content size
+  UINT64     pack_size; // total_size = packed_header + packed_content
   DWORD      attr;      // windows file attributes
   INT64      ctime;     // creation time
   INT64      mtime;     // modification time
@@ -129,7 +126,7 @@ protected:
   PBYTE  get_next_block(PBYTE cur_block);
   void   set_next_block(PBYTE cur_block, PBYTE next_block);
 
-  int add_pax_info(tar::pax_decode & pax, UINT64 file_pos, UINT64 frame_size, int hdr_pack_size);
+  int add_pax_info(tar::pax_decode & pax, UINT64 file_pos, int hdr_pack_size, UINT64 total_size);
   int scan_pax_file(HANDLE hFile);
   int scan_paxlz4_file(HANDLE hFile);
   

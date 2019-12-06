@@ -288,7 +288,7 @@ fin:
   return hr;
 }
 
-int cache::add_pax_info(tar::pax_decode & pax, UINT64 file_pos, UINT64 frame_size, int hdr_pack_size)
+int cache::add_pax_info(tar::pax_decode & pax, UINT64 file_pos, int hdr_pack_size, UINT64 total_size)
 {
   int hr = 0;
   
@@ -325,15 +325,11 @@ int cache::add_pax_info(tar::pax_decode & pax, UINT64 file_pos, UINT64 frame_siz
         FIN_IF(!item, 0x45013500 | E_EOPEN);
         item->ctime = pax.m_info.attr.CreationTime.QuadPart;
         item->mtime = pax.m_info.attr.LastWriteTime.QuadPart;
-        item->pack_size = pax.m_info.size;
-        item->pax.realsize = pax.m_info.realsize;
+        item->pack_size = total_size;
         item->pax.pos = file_pos;
-        item->pax.frame_size = frame_size;
-        if (hdr_pack_size) {
-          item->pax.hdr.pack_size = hdr_pack_size;
-          item->pack_size = frame_size; // - hdr_pack_size;
-        }  
-        item->pax.hdr.size = (UINT32)pax.get_header_size();
+        item->pax.realsize = pax.m_info.realsize;
+        item->pax.hdr_p_size = hdr_pack_size;
+        item->pax.hdr_size = (UINT32)pax.get_header_size();
       } while(0);
     }
   }
@@ -396,7 +392,7 @@ int cache::scan_pax_file(HANDLE hFile)
     }
 
     UINT64 frame_size = pax.m_header_size + tar::blocksize_round64(pax.m_info.size);
-    hr = add_pax_info(pax, hdr_pos, frame_size, 0);
+    hr = add_pax_info(pax, hdr_pos, 0, frame_size);
     FIN_IF(hr, hr | E_EOPEN);
 
     if (pax.m_info.size) {
@@ -419,7 +415,7 @@ fin:
 
 int cache::scan_paxlz4_file(HANDLE hFile)
 {
-  const size_t buf_size = 4*1024*1024;
+  const size_t buf_size = 2*1024*1024;
   int hr = 0;
   LARGE_INTEGER pos;
   DWORD dw;
@@ -427,10 +423,10 @@ int cache::scan_paxlz4_file(HANDLE hFile)
   bst::buf dst;
   tar::pax_decode pax;
 
-  FIN_IF(!buf.reserve(buf_size + tar::BLOCKSIZE), 0x44010100 | E_EOPEN);
+  FIN_IF(!buf.reserve(buf_size), 0x44010100 | E_EOPEN);
   buf.resize(buf_size);
 
-  FIN_IF(!dst.reserve(buf_size + tar::BLOCKSIZE), 0x44010200 | E_EOPEN);
+  FIN_IF(!dst.reserve(buf_size), 0x44010200 | E_EOPEN);
   dst.resize(buf_size);
   
   pos.QuadPart = m_arcfile.get_data_begin();
@@ -440,10 +436,10 @@ int cache::scan_paxlz4_file(HANDLE hFile)
   UINT64 file_size = m_arcfile.get_size();
   lz4::frame_info frame;
 
-  const size_t frame_header_size = LZ4F_HEADER_SIZE_MIN + 8 + 4;  /* + ContentSize + BlockSize */
+  const size_t frame_header_size = LZ4F_HEADER_SIZE_MIN + 8 + 4;  /* + ContentSize + BlockHeader */
   while(1) {
     UINT64 hdr_pos = pos.QuadPart;
-    UINT64 frame_size = 0;
+    UINT64 total_size = 0;
     size_t sz = frame_header_size;
 
     if ((UINT64)pos.QuadPart + sz > file_size)
@@ -452,7 +448,7 @@ int cache::scan_paxlz4_file(HANDLE hFile)
     BOOL x = ReadFile(hFile, buf.data(), (DWORD)sz, &dw, NULL);
     FIN_IF(!x || dw != sz, 0x44011100 | E_EOPEN);
     pos.QuadPart += sz;
-    frame_size += sz;
+    total_size += sz;
     
     DWORD magic = *(PDWORD)buf.data();
     if (magic != lz4::LZ4IO_MAGICNUMBER) {
@@ -471,22 +467,24 @@ int cache::scan_paxlz4_file(HANDLE hFile)
     FIN_IF(frame.frameType != LZ4F_frame, 0x44012100 | E_EOPEN);
     
     FIN_IF(data_offset != frame_header_size, 0x44012200 | E_EOPEN);
-    FIN_IF(frame.data_size > 2*1024*1024, 0x44012500 | E_EOPEN);
+    FIN_IF(frame.data_size > 1*1024*1024, 0x44012500 | E_EOPEN);
 
     PBYTE pd = buf.data() + frame_header_size;
-    sz = frame.data_size + 4;  /* + BlockCkSum */
+    sz = frame.data_size + 4 + 4 + 4;  /* + BlockCkSum + EndMark + ContentCkSum */
     FIN_IF((UINT64)pos.QuadPart + sz > file_size, 0x44012600 | E_EOPEN);
     x = ReadFile(hFile, pd, (DWORD)sz, &dw, NULL);
     FIN_IF(!x || dw != (DWORD)sz, 0x44012700 | E_EOPEN);
     pos.QuadPart += sz;
-    frame_size += sz;
+    total_size += sz;
 
     tar::posix_header * ph = (tar::posix_header *)pd;
     size_t plen = frame.data_size;
     DWORD calc_hash = XXH32(pd, plen, 0);
     DWORD read_hash = *(PDWORD)(pd + plen);
-    //LOGi("pos = 0x%X  hash = %08X  calc = %08X ", (DWORD)pos.QuadPart - 4, read_hash, calc_hash);
     FIN_IF(read_hash != calc_hash, 0x44013700 | E_EOPEN);
+
+    DWORD end_mark = *(PDWORD)(pd + plen + 4);
+    FIN_IF(end_mark != 0, 0x44013800 | E_EOPEN);   /* header frame must contain only one block! */ 
 
     if (frame.is_compressed) {
       int dsz = lz4::decode_data_partial(pd, plen, dst.data(), dst.size() - tar::BLOCKSIZE, dst.size());
@@ -496,7 +494,7 @@ int cache::scan_paxlz4_file(HANDLE hFile)
     }
     FIN_IF(plen & tar::BLOCKSIZE_MASK, 0x44016100 | E_EOPEN);
     
-    int hdr_pack_size = (int)frame_size;
+    int hdr_pack_size = (int)total_size;
 
     //hr = tar::check_tar_is_zero(ph, plen);
     //if (hr == 1)
@@ -511,28 +509,57 @@ int cache::scan_paxlz4_file(HANDLE hFile)
       FIN_IF(hr, 0x44017300 | E_EOPEN);
     }
 
-    while(1) {
-      DWORD blksize;
-      BOOL x = ReadFile(hFile, &blksize, sizeof(blksize), &dw, NULL);
-      FIN_IF(!x || dw != sizeof(blksize), 0x44019100 | E_EOPEN);
-      pos.QuadPart += sizeof(blksize);
-      frame_size += sizeof(blksize);
-      if (blksize == 0) {
-        DWORD contentCkSum;
-        BOOL x = ReadFile(hFile, &contentCkSum, sizeof(contentCkSum), &dw, NULL);
-        FIN_IF(!x || dw != sizeof(blksize), 0x44019200 | E_EOPEN);
-        pos.QuadPart += sizeof(contentCkSum);
-        frame_size += sizeof(contentCkSum);
-        break;
-      }
-      size_t sz = (blksize & (~lz4::BLOCKUNCOMPRES_FLAG)) + 4;  /* + BlockCkSum */
+    if (pax.m_info.size) {
+      BYTE fbuf[frame_header_size + 16];
+      size_t sz = frame_header_size;
+      FIN_IF((UINT64)pos.QuadPart + sz > file_size, 0x44121000 | E_EOPEN);
+      BOOL x = ReadFile(hFile, fbuf, (DWORD)sz, &dw, NULL);
+      FIN_IF(!x || dw != (DWORD)sz, 0x44122000 | E_EOPEN);
       pos.QuadPart += sz;
-      x = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-      FIN_IF(x == INVALID_SET_FILE_POINTER, 0x44019300 | E_EOPEN);
-      frame_size += sz;
+      total_size += sz;
+
+      DWORD magic = *(PDWORD)fbuf;
+      FIN_IF(magic != lz4::LZ4IO_MAGICNUMBER, 0x44123000 | E_EOPEN);
+
+      int data_offset = frame.init(fbuf, sz);
+      FIN_IF(data_offset <= 0, 0x44124000 | E_EOPEN); 
+
+      FIN_IF(frame.contentSize < tar::BLOCKSIZE, 0x44125000 | E_EOPEN);
+      FIN_IF(frame.contentSize & tar::BLOCKSIZE_MASK, 0x44126000 | E_EOPEN);
+      FIN_IF(frame.data_size == 0, 0x44127000 | E_EOPEN);
+      FIN_IF(frame.blockChecksumFlag == 0, 0x44128000 | E_EOPEN);
+      FIN_IF(frame.contentChecksumFlag == 0, 0x44129000 | E_EOPEN);
+      FIN_IF(frame.blockMode != LZ4F_blockIndependent, 0x44130000 | E_EOPEN);
+      FIN_IF(frame.blockSizeID != LZ4F_max4MB, 0x44131000 | E_EOPEN);
+      FIN_IF(frame.frameType != LZ4F_frame, 0x44132000 | E_EOPEN);
+      FIN_IF(data_offset != frame_header_size, 0x44133000 | E_EOPEN);
+
+      DWORD blksize = *(PDWORD)(fbuf + frame_header_size - 4);
+      FIN_IF(blksize == 0, 0x44134000 | E_EOPEN);
+
+      while(1) {
+        if (blksize == 0) {
+          DWORD contentCkSum;
+          BOOL x = ReadFile(hFile, &contentCkSum, sizeof(contentCkSum), &dw, NULL);
+          FIN_IF(!x || dw != sizeof(blksize), 0x44142000 | E_EOPEN);
+          pos.QuadPart += sizeof(contentCkSum);
+          total_size += sizeof(contentCkSum);
+          break;
+        }
+        size_t sz = (blksize & (~lz4::BLOCKUNCOMPRES_FLAG)) + 4;  /* + BlockCkSum */
+        pos.QuadPart += sz;
+        x = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+        FIN_IF(x == INVALID_SET_FILE_POINTER, 0x44143000 | E_EOPEN);
+        total_size += sz;
+
+        BOOL x = ReadFile(hFile, &blksize, sizeof(blksize), &dw, NULL);
+        FIN_IF(!x || dw != sizeof(blksize), 0x44144000 | E_EOPEN);
+        pos.QuadPart += sizeof(blksize);
+        total_size += sizeof(blksize);
+      }
     }
 
-    hr = add_pax_info(pax, hdr_pos, frame_size, hdr_pack_size);
+    hr = add_pax_info(pax, hdr_pos, hdr_pack_size, total_size);
     FIN_IF(hr, hr | E_EOPEN);
   }
 
