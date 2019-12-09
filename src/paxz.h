@@ -40,10 +40,14 @@ struct frame_prefix
   DWORD    size;          /* see FRAME_SIZE_SIZE */
 };
 
-struct frame_pax : public frame_prefix
+struct frame_base : public frame_prefix
 {
   char     name[FRAME_NAME_LEN];
   BYTE     version;
+};
+
+struct frame_pax : public frame_base
+{
   UINT16   flags;
   UINT16   cipher_algo;   /* 0 = cipher not used */
   UINT16   pbkdf2_iter;   /* iteration count for PBKDF2 algo */
@@ -53,14 +57,18 @@ struct frame_pax : public frame_prefix
   bool is_valid(char min_version, char max_version);
 };
 
-struct frame_end : public frame_pax
+struct frame_end : public frame_base
 {
+  UINT16   flags;
+  DWORD    reserved;
+  DWORD    checksum;      /* XXHASH32 checksum of frame_root */
+
   int init(char aVersion);
+  bool is_valid();
 };
 
-struct frame_dic : public frame_prefix {
-  char     name[FRAME_NAME_LEN];
-  BYTE     version;
+struct frame_dic : public frame_base
+{
   UINT16   flags;
   // ???????      // TODO: support packing with dictionary 
 };
@@ -111,11 +119,24 @@ inline int frame_end::init(char aVersion)
     memcpy(name, paxz::FRAME_END_NAME, paxz::FRAME_NAME_LEN);
     version = aVersion;
     flags = 0;
-    cipher_algo = 0;
-    pbkdf2_iter = 0;
+    reserved = 0;
   }
   checksum = XXH32(&magic, sizeof(frame_end) - sizeof(checksum), 0);
   return (int)sizeof(frame_end);
+}
+
+inline bool frame_end::is_valid()
+{
+  if (magic != FRAME_MAGIC)
+    return false;
+  if (size != sizeof(paxz::frame_end) - sizeof(paxz::frame_prefix))
+    return false;
+  if (memcmp(name, paxz::FRAME_END_NAME, paxz::FRAME_NAME_LEN) != 0)
+    return false;
+  if (checksum != XXH32(&magic, sizeof(paxz::frame_end) - sizeof(checksum), 0))
+    return false;
+
+  return true;
 }
 
 } /* namespace */
