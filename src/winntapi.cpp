@@ -43,6 +43,18 @@ BOOL GetFileInformationByHandleEx(HANDLE handle, FILE_INFO_BY_HANDLE_CLASS FileI
   return TRUE;
 }
 
+INT64 GetFileCurrentPos(HANDLE handle)
+{
+  IO_STATUS_BLOCK io;
+  LARGE_INTEGER pos;
+  NTSTATUS status = NtQueryInformationFile(handle, &io, &pos, sizeof(pos), FilePositionInformation);
+  if (status != NT_STATUS_SUCCESS) {
+    SetLastError(RtlNtStatusToDosError(status));
+    return -1LL;
+  }
+  return pos.QuadPart;
+}
+
 BOOL GetFileIdByHandle(HANDLE handle, UINT64 * fid)
 {
   NTSTATUS status;
