@@ -7,13 +7,15 @@
 [![Github All Releases](https://img.shields.io/github/downloads/remittor/paxz.wcx/total.svg)](https://www.github.com/remittor/paxz.wcx/releases/latest)
 [![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/remittor/paxz.wcx?include_prereleases)](https://www.github.com/remittor/paxz.wcx/releases)
 
-Supported formats: **PAX , LZ4**
+Supported formats for decompression: `pax`, `lz4`, `pax.lz4`, `zst`, `paxz`
 
-Custom formats: **PAX.LZ4**
+Supported formats for compression: `pax`, `pax.lz4`, `paxz`
 
-Files packed in a custom format can be unpacked with free cross-platform utilities: lz4/zstd, pax/gnutar.
+File format `paxz` equivalent for `pax.zst`.
 
-## Tasks list:
-- [ ] Add support for Zstandard and custom format PAXZ.
-- [ ] Add support for inserting and deleting files.
-- [ ] Add support for cipher ChaCha20.
+All files created by this plugin can be unpacked with free cross-platform utilities: `lz4`/`zstd`, `pax`/`gnutar`.
+
+## Tasks list
+- [ ] Zstandard and custom format PAXZ.
+- [ ] Inserting and deleting files.
+- [ ] Cipher ChaCha20.

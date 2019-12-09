@@ -8,6 +8,7 @@ namespace nt {
 DWORD BaseSetLastNTError(NTSTATUS Status);
 
 BOOL GetFileInformationByHandleEx(HANDLE handle, FILE_INFO_BY_HANDLE_CLASS FileInfoClass, LPVOID info, size_t size);
+INT64 GetFileCurrentPos(HANDLE handle);
 BOOL GetFileIdByHandle(HANDLE handle, UINT64 * fid);
 BOOL GetVolumeIdByHandle(HANDLE handle, UINT64 * vid);
 

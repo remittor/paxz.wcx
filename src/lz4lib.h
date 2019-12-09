@@ -6,9 +6,9 @@
 #define LZ4_STATIC_LINKING_ONLY
 #define LZ4_HC_STATIC_LINKING_ONLY
 #define XXH_STATIC_LINKING_ONLY
-#include "..\lz4\lib\lz4hc.h"
-#include "..\lz4\lib\lz4frame_static.h"
-#include "..\lz4\lib\xxhash.h"
+#include "lz4\lib\lz4hc.h"
+#include "lz4\lib\lz4frame_static.h"
+#include "lz4\lib\xxhash.h"
 
 
 namespace lz4 {
@@ -22,6 +22,7 @@ const DWORD LEGACY_MAGICNUMBER  = 0x184C2102;
 const DWORD LEGACY_BLOCKSIZE    = 8*1024*1024;  // 8 MiB
 const DWORD BLOCKUNCOMPRES_FLAG = 0x80000000UL; // LZ4F_BLOCKUNCOMPRESSED_FLAG
 
+const UINT64 CONTENTSIZE_UNKNOWN = (0ULL - 1);
 
 enum Format : char {
   ffUnknown = 0,
@@ -40,20 +41,21 @@ int check_file_header(HANDLE hFile, UINT64 file_size);
 int check_file_header(LPCWSTR filename);
 
 
-struct frame_info;
-
-int get_frame_info(LPCVOID buf, size_t bufsize, frame_info * finfo);
 int decode_data_partial(LPCVOID src, size_t srcSize, LPVOID dst, size_t dstSize, size_t dstCapacity);
 
 struct frame_info : public LZ4F_frameInfo_t
 {
-  size_t  frame_size;
+  size_t  header_size;
   size_t  data_offset;
-  bool    is_compressed;
   size_t  data_size;
-  
-  int init(LPCVOID buf, size_t bufsize) { frame_size = 0; return get_frame_info(buf, bufsize, this); }
+  bool    is_compressed;
+
+  int init(LPCVOID buf, size_t bufsize);
   LZ4F_frameInfo_t * get_ptr() { return (LZ4F_frameInfo_t *)this; }
+  size_t get_header_size() { return header_size; }
+  bool is_skippable_frame() { return frameType == LZ4F_skippableFrame; }
+  bool is_unknown_content_size() { return contentSize == CONTENTSIZE_UNKNOWN; }
+  UINT64 get_content_size() { return contentSize; }
 };
 
 

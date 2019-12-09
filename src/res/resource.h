@@ -49,6 +49,8 @@
 #define IDC_LBL_CACHE_TIME              152
 #define IDC_LBL_CACHE_MIN               153
 #define IDC_LBL_CACHE_SIZE              154
+#define IDC_DEBUG_LEVEL                 155
+#define IDC_LBL_DEBUG_LEVEL             156
 
 #define IDS_COMP_LEVEL                  900
 

@@ -7,19 +7,19 @@
 
 namespace paxz { 
 
-const DWORD FRAME_ROOT           = 0x184D2A55;
-const DWORD FRAME_SIZE_SIZE      = lz4::LZ4IO_SKIPPABLE_FS;
-const DWORD FRAME_NAME_LEN       = 4;
-const DWORD FRAME_ROOT_NAME_LEN  = FRAME_NAME_LEN;
-const char  FRAME_ROOT_NAME[]    = "PAX\0";
-const DWORD FRAME_DICT_NAME_LEN  = FRAME_NAME_LEN;
-const char  FRAME_DICT_NAME[]    = "DIC\0";
-const DWORD FRAME_END_NAME_LEN   = FRAME_NAME_LEN;
-const char  FRAME_END_NAME[]     = "END\0";
+const char  CURRENT_VERSION      = 0;       /* current version on PAXZ global header format */
 
-const BYTE FLAG_USE_DICTIONARY   = 0x01;
-const BYTE FLAG_CIPHER_NO_SALT   = 0x02;
-const BYTE FLAG_CIPHER_FILE_NAME = 0x04;
+const DWORD FRAME_MAGIC          = 0x184D2A55;
+const DWORD FRAME_SIZE_SIZE      = 4;
+const DWORD FRAME_NAME_LEN       = 3;
+const char  FRAME_GLB_NAME[]     = "PAX";   /* Global paxz frame */
+const char  FRAME_DIC_NAME[]     = "DIC";   /* paxz frame for dictionary */
+const char  FRAME_END_NAME[]     = "END";   /* Footer paxz frame */
+
+const UINT16 FLAG_DICT_FOR_HEADER  = 0x0002;
+const UINT16 FLAG_DICT_FOR_CONTENT = 0x0004;
+const UINT16 FLAG_CIPHER_NO_SALT   = 0x0100;
+const UINT16 FLAG_CIPHER_HEADER    = 0x0200;
 
 const char  SALT_PREFIX[]        = "Salted__";      /* from OpenSSL */
 const DWORD SALT_PREFIX_SIZE     = 8;
@@ -34,41 +34,55 @@ const UINT16 NID_chacha20        = 1019;
 
 #pragma pack(push, 1)
 
-struct frame_prefix {
+struct frame_prefix
+{
   DWORD    magic;         /* see FRAME_ROOT */
   DWORD    size;          /* see FRAME_SIZE_SIZE */
 };
 
-struct frame_root : public frame_prefix {
-  char     name[FRAME_ROOT_NAME_LEN];
+struct frame_base : public frame_prefix
+{
+  char     name[FRAME_NAME_LEN];
   BYTE     version;
-  BYTE     flags;
-  UINT16   cipher_algo;   /* 0 = cipher not used */
-  UINT16   pbkdf2_iter;   /* iteration count for PBKDF2 algo */
-  DWORD    checksum;      /* XXHASH checksum of frame_root */
-  
-  int init_pax(BYTE aVersion, BYTE aFlags, bool aCipher = false);
-  int init_end(BYTE aVersion);
-  bool is_valid(BYTE min_version);
 };
 
-struct frame_dict : public frame_prefix {
-  char     name[FRAME_DICT_NAME_LEN];
-  BYTE     version;
-  BYTE     flags;
+struct frame_pax : public frame_base
+{
+  UINT16   flags;
+  UINT16   cipher_algo;   /* 0 = cipher not used */
+  UINT16   pbkdf2_iter;   /* iteration count for PBKDF2 algo */
+  DWORD    checksum;      /* XXHASH32 checksum of frame_root */
+  
+  int init(char aVersion, int aFlags, bool aCipher = false);
+  bool is_valid(char min_version, char max_version);
+};
+
+struct frame_end : public frame_base
+{
+  UINT16   flags;
+  DWORD    reserved;
+  DWORD    checksum;      /* XXHASH32 checksum of frame_root */
+
+  int init(char aVersion);
+  bool is_valid();
+};
+
+struct frame_dic : public frame_base
+{
+  UINT16   flags;
   // ???????      // TODO: support packing with dictionary 
 };
 
 #pragma pack(pop)
 
-inline int frame_root::init_pax(BYTE aVersion, BYTE aFlags, bool aCipher)
+inline int frame_pax::init(char aVersion, int aFlags, bool aCipher)
 {
-  magic = FRAME_ROOT;
+  magic = FRAME_MAGIC;
   {
-    size = sizeof(frame_root) - sizeof(frame_prefix);
-    memcpy(name, FRAME_ROOT_NAME, FRAME_ROOT_NAME_LEN);
+    size = sizeof(frame_pax) - sizeof(frame_prefix);
+    memcpy(name, FRAME_GLB_NAME, FRAME_NAME_LEN);
     version = aVersion;
-    flags = aFlags;  
+    flags = (UINT16)aFlags;
     if (aCipher) {
       cipher_algo = NID_chacha20;
       pbkdf2_iter = 0;   // TODO: support PBKDF2 algo
@@ -77,37 +91,49 @@ inline int frame_root::init_pax(BYTE aVersion, BYTE aFlags, bool aCipher)
       pbkdf2_iter = 0;
     }
   }
-  checksum = XXH32(&magic, sizeof(frame_root) - sizeof(DWORD), 0);
-  return (int)sizeof(frame_root);
+  checksum = XXH32(&magic, sizeof(frame_pax) - sizeof(checksum), 0);
+  return (int)sizeof(frame_pax);
 }
 
-inline int frame_root::init_end(BYTE aVersion)
+inline bool frame_pax::is_valid(char min_version, char max_version)
 {
-  magic = FRAME_ROOT;
+  if (magic != FRAME_MAGIC)
+    return false;
+  if (size != sizeof(paxz::frame_pax) - sizeof(paxz::frame_prefix))
+    return false;
+  if (memcmp(name, paxz::FRAME_GLB_NAME, paxz::FRAME_NAME_LEN) != 0)
+    return false;
+  if (version < (BYTE)min_version || version > (BYTE)max_version)
+    return false;
+  if (checksum != XXH32(&magic, sizeof(paxz::frame_pax) - sizeof(checksum), 0))
+    return false;
+
+  return true;
+}
+
+inline int frame_end::init(char aVersion)
+{
+  magic = FRAME_MAGIC;
   {
-    size = sizeof(frame_root) - sizeof(frame_prefix);
-    memcpy(name, FRAME_END_NAME, FRAME_END_NAME_LEN);
+    size = sizeof(frame_end) - sizeof(frame_prefix);
+    memcpy(name, paxz::FRAME_END_NAME, paxz::FRAME_NAME_LEN);
     version = aVersion;
     flags = 0;
-    cipher_algo = 0;
-    pbkdf2_iter = 0;
+    reserved = 0;
   }
-  checksum = XXH32(&magic, sizeof(frame_root) - sizeof(DWORD), 0);
-  return (int)sizeof(frame_root);
+  checksum = XXH32(&magic, sizeof(frame_end) - sizeof(checksum), 0);
+  return (int)sizeof(frame_end);
 }
 
-inline bool frame_root::is_valid(BYTE min_version)
+inline bool frame_end::is_valid()
 {
-  if (magic != FRAME_ROOT)
+  if (magic != FRAME_MAGIC)
     return false;
-  if (size != sizeof(paxz::frame_root) - sizeof(paxz::frame_prefix))
+  if (size != sizeof(paxz::frame_end) - sizeof(paxz::frame_prefix))
     return false;
-  if (memcmp(name, paxz::FRAME_ROOT_NAME, paxz::FRAME_ROOT_NAME_LEN) != 0)
+  if (memcmp(name, paxz::FRAME_END_NAME, paxz::FRAME_NAME_LEN) != 0)
     return false;
-  if (version < min_version)
-    return false;
-  DWORD frame_hash = XXH32(&magic, sizeof(paxz::frame_root) - sizeof(DWORD), 0);
-  if (frame_hash != checksum)
+  if (checksum != XXH32(&magic, sizeof(paxz::frame_end) - sizeof(checksum), 0))
     return false;
 
   return true;

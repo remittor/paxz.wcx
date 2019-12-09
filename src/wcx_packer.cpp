@@ -4,8 +4,9 @@
 
 namespace wcx {
 
-packer::packer(wcx::cfg & cfg, int Flags, DWORD thread_id, tProcessDataProcW callback)
+packer::packer(type ctype, wcx::cfg & cfg, int Flags, DWORD thread_id, tProcessDataProcW callback)
 {
+  m_ctype = ctype;
   m_cfg = cfg;
   m_thread_id = thread_id;
   m_AddListSize = 0;
@@ -13,6 +14,8 @@ packer::packer(wcx::cfg & cfg, int Flags, DWORD thread_id, tProcessDataProcW cal
   reset();
   m_Flags = Flags;  
   m_cb.set_ProcessDataProc(callback);
+  m_readed_size = 0;
+  m_output_size = 0;
 }
 
 packer::~packer()
@@ -33,16 +36,198 @@ void packer::reset()
   m_delete_out_file = false;
 }
 
+void packer::reset_ctx(bool full_reset)
+{
+  m_readed_size = 0;
+  m_output_size = 0;
+  if (m_ctype == ctLz4) {
+    m_lz4.ctx.reset();
+  }
+  if (m_ctype == ctZstd) {
+    m_zst.ctx.reset(full_reset);
+  }
+}
+
+int packer::set_block_size(SSIZE_T blk_size)
+{
+  if (blk_size > 128)
+    blk_size = (blk_size + 1) / (1024*1024);   // convert to MiB
+
+  if (blk_size <= 0) {
+    m_block_size = 512*1024;
+  } else {
+    m_block_size = (size_t)blk_size * (1024*1024);
+  }
+  return (int)m_block_size;
+}
+
+int packer::set_compression_level(int cpr_level)
+{
+  if (cpr_level <= 0)
+    cpr_level = -1;
+
+  if (m_ctype == ctLz4) {
+    if (cpr_level > LZ4HC_CLEVEL_DEFAULT)
+      cpr_level = LZ4HC_CLEVEL_DEFAULT;
+  }
+  if (m_ctype == ctZstd) {
+    if (cpr_level > zst::MAX_CLEVEL)
+      cpr_level = zst::MAX_CLEVEL;
+  }
+  m_cpr_level = cpr_level;
+  return 0;
+}
+
+static ZSTD_inBuffer emptyInput = { NULL, 0, 0 };
+
+int packer::frame_create(UINT64 total_size)
+{
+  int hr = 0;
+  size_t sz;
+
+  FIN_IF(!m_outFile, -1);
+  FIN_IF(m_cpr_level < 0, 0);
+
+  if (m_ctype == ctLz4) {
+    LZ4F_preferences_t * prefs = &m_lz4.prefs;
+    memset(prefs, 0, sizeof(LZ4F_preferences_t));
+    prefs->compressionLevel = (m_cpr_level == 0) ? 1 : m_cpr_level;
+    prefs->frameInfo.blockMode = LZ4F_blockIndependent;
+    prefs->frameInfo.blockSizeID = LZ4F_max4MB;
+    prefs->frameInfo.blockChecksumFlag = LZ4F_blockChecksumEnabled;
+    prefs->frameInfo.contentChecksumFlag = LZ4F_contentChecksumEnabled;
+    prefs->favorDecSpeed = 0;   /* 1: parser favors decompression speed vs compression ratio. Only works for high compression modes (>= LZ4HC_CLEVEL_OPT_MIN) */
+    prefs->frameInfo.contentSize = total_size;
+    prefs->autoFlush = 1;
+
+    hr = m_lz4.ctx.init(m_lz4.prefs);
+    FIN_IF(hr, -10);
+
+    size_t bsz = LZ4F_compressFrameBound(m_block_size, &m_lz4.prefs);
+    if (bsz > m_cpr_buf.size()) {
+      size_t msz = bsz + 2048;
+      FIN_IF(!m_cpr_buf.reserve(msz + 2048), -11);
+      m_cpr_buf.resize(msz);
+    }
+
+    sz = LZ4F_compressBegin(get_lz4_ctx(), m_cpr_buf.data(), m_cpr_buf.size(), &m_lz4.prefs);
+    FIN_IF(LZ4F_isError(sz), -12);
+  }
+
+  if (m_ctype == ctZstd) { 
+    ZSTD_parameters * params = &m_zst.params;
+    memset(params, 0, sizeof(ZSTD_parameters));
+
+    hr = m_zst.ctx.init(m_cpr_level, NULL);
+    FIN_IF(hr, -10);
+
+    ZSTD_CCtx_setPledgedSrcSize(get_zst_ctx(), total_size);
+
+    size_t bsz = ZSTD_compressBound(m_block_size) + 1024;
+    if (bsz > m_cpr_buf.size()) {
+      FIN_IF(!m_cpr_buf.reserve(bsz + 2048), -11);
+      m_cpr_buf.resize(bsz);
+    }
+
+    ZSTD_outBuffer output = { m_cpr_buf.data(), m_cpr_buf.size(), 0 };
+    sz = ZSTD_compressStream2(get_zst_ctx(), &output, &emptyInput, ZSTD_e_flush);
+    FIN_IF(ZSTD_isError(sz), -12);
+    sz = output.pos;
+  }
+
+  DWORD dw;
+  BOOL x = WriteFile(m_outFile, m_cpr_buf.c_data(), (DWORD)sz, &dw, NULL);
+  FIN_IF(!x, -15);
+  FIN_IF((DWORD)sz != dw, -16);
+
+  m_output_size += sz;
+  hr = 0;
+
+fin:
+  return hr;
+}
+
+int packer::frame_add_data(PBYTE buf, size_t bufsize)
+{
+  int hr = 0;
+  size_t sz;
+
+  if (m_cpr_level >= 0) {
+    if (m_ctype == ctLz4) {
+      FIN_IF(m_lz4.prefs.autoFlush == 0, -21);
+      FIN_IF(get_lz4_ctx() == NULL, -22);
+      FIN_IF(bufsize > m_block_size, -23);
+      sz = LZ4F_compressUpdate(get_lz4_ctx(), m_cpr_buf.data(), m_cpr_buf.size(), buf, bufsize, NULL);
+      FIN_IF(LZ4F_isError(sz), -24);
+    }
+    if (m_ctype == ctZstd) {
+      FIN_IF(get_zst_ctx() == NULL, -22);
+      FIN_IF(bufsize > m_block_size, -23);
+      ZSTD_inBuffer  input  = { buf, bufsize, 0 };
+      ZSTD_outBuffer output = { m_cpr_buf.data(), m_cpr_buf.size(), 0 };
+      sz = ZSTD_compressStream2(get_zst_ctx(), &output, &input, ZSTD_e_flush);
+      FIN_IF(ZSTD_isError(sz), -24);
+      sz = output.pos;
+    }
+    buf = m_cpr_buf.data();
+  } else {
+    sz = bufsize;
+  }
+  DWORD dw;
+  BOOL x = WriteFile(m_outFile, (LPCVOID)buf, (DWORD)sz, &dw, NULL);
+  FIN_IF(!x, -25);
+  FIN_IF((DWORD)sz != dw, -26);
+
+  m_readed_size += bufsize;
+  m_output_size += sz;
+  hr = 0;
+
+fin:
+  return hr;
+}
+
+int packer::frame_close()
+{
+  int hr = 0;
+  size_t sz;
+
+  FIN_IF(m_cpr_level < 0, 0);
+
+  if (m_ctype == ctLz4) {
+    sz = LZ4F_compressEnd(get_lz4_ctx(), m_cpr_buf.data(), m_cpr_buf.size(), NULL);
+    FIN_IF(LZ4F_isError(sz), -31);
+  }
+  if (m_ctype == ctZstd) {
+    ZSTD_outBuffer output = { m_cpr_buf.data(), m_cpr_buf.size(), 0 };
+    sz = ZSTD_compressStream2(get_zst_ctx(), &output, &emptyInput, ZSTD_e_end);
+    FIN_IF(ZSTD_isError(sz), -31);
+    sz = output.pos;
+  }
+  DWORD dw;
+  BOOL x = WriteFile(m_outFile, m_cpr_buf.c_data(), (DWORD)sz, &dw, NULL);
+  FIN_IF(!x, -35);
+  FIN_IF((DWORD)sz != dw, -36);
+
+  m_output_size += sz;
+  hr = 0;
+
+fin:
+  return hr;
+}
+
 int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
 {
   int hr = E_BAD_ARCHIVE;
   HANDLE hFile = NULL;
   BOOL x;
   int ret;
-  size_t sz;
   size_t fn_num = 0;
   tar::pax_encode pax;
+  paxz::frame_pax paxframe;
+  paxz::frame_end endframe;
   DWORD dw;
+  const char paxz_ver = 0;   /* actual version paxz format */
+  int paxz_flags = 0;
 
   FIN_IF(!m_AddListSize, 0x201000 | E_NO_FILES);
   
@@ -58,21 +243,23 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
     m_buf.resize(bufsize);
     FIN_IF(m_buf.size() & tar::BLOCKSIZE_MASK, 0x208000 | E_NO_MEMORY);
   }
-  m_lz4.reset();
-  m_lz4.set_block_size((int)m_buf.size());
-  m_lz4.set_compression_level(m_cfg.get_compression_level());
-  m_lz4.frame_set_file(m_outFile);
-  
-  hr = m_lz4.frame_create(0);    /* create LZ4 zero frame */
-  FIN_IF(hr, 0x209100 | E_ECREATE);
-  hr = m_lz4.frame_close();
-  FIN_IF(hr, 0x209200 | E_ECREATE);
-  
-  paxz::frame_root fr;
-  int frlen = fr.init_pax(0, 0, false);
-  x = WriteFile(m_outFile, &fr, frlen, &dw, NULL);
-  FIN_IF(!x || dw != frlen, 0x209300 | E_ECREATE);
 
+  set_block_size(m_buf.size());
+  set_compression_level(m_cfg.get_compression_level());
+  LOGi("%s: compression level = %d", __func__, m_cpr_level);
+  m_start_time = GetTickCount();
+  reset_ctx(true);
+
+  if (m_cpr_level >= 0) {
+    FIN_IF(frame_create(0), 0x209100 | E_ECREATE);    /* create LZ4/Zstd zero frame */
+    FIN_IF(frame_close(), 0x209200 | E_ECREATE);    
+    int frlen = paxframe.init(paxz_ver, paxz_flags, false);
+    BOOL x = WriteFile(m_outFile, &paxframe, frlen, &dw, NULL);
+    FIN_IF(!x || dw != frlen, 0x209300 | E_ECREATE);
+    if (paxz_flags & paxz::FLAG_DICT_FOR_HEADER) {
+      // TODO: add dictionary support!
+    }
+  }
   if (m_ext_buf.empty()) {
     const size_t bufsize = 2*1024*1024;
     FIN_IF(!m_ext_buf.reserve(bufsize + 64), 0x209900 | E_NO_MEMORY);
@@ -136,25 +323,22 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
 
     tar::fileinfo fi;
     fi.realsize = 0;
-    size_t hsz = m_ext_buf.size();
-    hr = pax.create_header(hFile, &fi, NULL, fn, m_ext_buf.data(), hsz);
+    size_t hdr_size = m_ext_buf.size();
+    hr = pax.create_header(hFile, &fi, NULL, fn, m_ext_buf.data(), hdr_size);
     FIN_IF(hr, hr | E_ECREATE);
-    FIN_IF(hsz > (size_t)m_lz4.get_block_size(), 0x231000 | E_ECREATE);
+    FIN_IF(hdr_size > m_block_size, 0x231000 | E_ECREATE);
+
+    FIN_IF(frame_create(hdr_size), 0x232100 | E_ECREATE);
+    FIN_IF(frame_add_data(m_ext_buf.data(), hdr_size), 0x232200 | E_ECREATE);
+    FIN_IF(frame_close(), 0x232300 | E_ECREATE);
 
     UINT64 fsize = fi.size;
-    UINT64 content_size = tar::blocksize_round64(hsz + fsize);
-    
-    hr = m_lz4.frame_create(content_size);
-    FIN_IF(hr, 0x232000 | E_ECREATE);    
-    hr = m_lz4.frame_add_data(m_ext_buf.data(), hsz);
-    FIN_IF(hr, 0x233000 | E_ECREATE);
-
-    if (is_dir || fsize == 0) {
-      hr = m_lz4.frame_close();
-      FIN_IF(hr, 0x234000 | E_ECREATE);
+    if (is_dir || fsize == 0)
       continue;
-    }
-    
+
+    UINT64 content_size = tar::blocksize_round64(fsize);
+    FIN_IF(frame_create(content_size), 0x233100 | E_ECREATE);
+
     m_cb.set_file_name(fn);
     ret = m_cb.tell_process_data(0);
     FIN_IF(ret == psCancel, 0);   // user press Cancel
@@ -177,27 +361,33 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
           sz += tar::BLOCKSIZE - dk;
         }
       }      
-      hr = m_lz4.frame_add_data(m_buf.data(), sz);
+      hr = frame_add_data(m_buf.data(), sz);
       FIN_IF(hr, 0x269000 | E_ECREATE);
       ret = m_cb.tell_process_data(rsize);
       FIN_IF(ret == psCancel, 0);   // user press Cancel
     }
 
-    hr = m_lz4.frame_close();
+    hr = frame_close();
     FIN_IF(hr, 0x279000 | E_ECREATE);
     ret = m_cb.tell_process_data(fsize, latest_file ? true: false);
     FIN_IF(ret == psCancel, 0);   // user press Cancel
   }
 
-  frlen = fr.init_end(0);
-  x = WriteFile(m_outFile, &fr, frlen, &dw, NULL);
-  FIN_IF(!x || dw != frlen, 0x279500 | E_ECREATE);
-
+  if (m_cpr_level >= 0) {
+    int frlen = endframe.init(paxz_ver);
+    BOOL x = WriteFile(m_outFile, &endframe, frlen, &dw, NULL);
+    FIN_IF(!x || dw != frlen, 0x279500 | E_ECREATE);
+  }
   m_delete_out_file = false;
   hr = 0;
 
 fin:
-  LOGd_IF(hr == 0, "%s: OK!  output_size = %I64d ", __func__, m_buf.size() ? m_lz4.get_output_size() : -1LL);
+  DWORD dt = GetTickBetween(m_start_time, GetTickCount());
+  if (m_buf.size() && dt > 0) {
+    UINT64 speed = m_readed_size / dt;  // (m_readed_size * 1000) / (dt * 1024);
+    LOGi("%s: readed_size = %I64d MB  speed = %I64d kB/s  [%d ms]", __func__, m_readed_size / (1024*1024), speed, dt);
+  }
+  LOGd_IF(hr == 0, "%s: OK!  output_size = %I64d ", __func__, m_buf.size() ? m_output_size : -1LL);
   if (hr && m_outFile) {
     m_delete_out_file = true;
   }

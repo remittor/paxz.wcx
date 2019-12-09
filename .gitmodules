@@ -1,0 +1,8 @@
+[submodule "extlibs/lz4"]
+	path = extlibs/lz4
+	url = https://github.com/lz4/lz4.git
+	branch = master
+[submodule "extlibs/zstd"]
+	path = extlibs/zstd
+	url = https://github.com/facebook/zstd.git
+	branch = master

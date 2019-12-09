@@ -1,32 +1,32 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <VisualStudioPropertySheet
-	ProjectType="Visual C++"
-	Version="8.00"
-	Name="paths"
-	IntermediateDirectory="$(SolutionDir)\.itermediates\$(ProjectName)\$(ConfigurationName)_$(PlatformName)\"
-	>
-	<UserMacro
-		Name="LibDir"
-		Value="$(SolutionDir)lib\"
-	/>
-	<UserMacro
-		Name="fakeNtdllDir"
-		Value="$(SolutionDir)fake_ntdll\"
-	/>
-	<UserMacro
-		Name="fakeNtdllOut"
-		Value="$(LibDir)\fake_ntdll\$(ConfigurationName)_$(PlatformName)"
-	/>
-	<UserMacro
-		Name="paxzSrcPath"
-		Value="$(SolutionDir)src\"
-	/>
-	<UserMacro
-		Name="paxzOutPath"
-		Value="$(SolutionDir)out\"
-	/>
-	<UserMacro
-		Name="paxzOutDir"
-		Value="$(paxzOutPath)\$(ConfigurationName)_$(PlatformName)"
-	/>	
+  ProjectType="Visual C++"
+  Version="8.00"
+  Name="paths"
+  IntermediateDirectory="$(SolutionDir)\.itermediates\$(ProjectName)\$(ConfigurationName)_$(PlatformName)\"
+  >
+  <UserMacro
+    Name="LibDir"
+    Value="$(SolutionDir)lib\"
+  />
+  <UserMacro
+    Name="fakeNtdllDir"
+    Value="$(SolutionDir)fake_ntdll\"
+  />
+  <UserMacro
+    Name="fakeNtdllOut"
+    Value="$(LibDir)\fake_ntdll\$(ConfigurationName)_$(PlatformName)"
+  />
+  <UserMacro
+    Name="paxzSrcPath"
+    Value="$(SolutionDir)src\"
+  />
+  <UserMacro
+    Name="paxzOutPath"
+    Value="$(SolutionDir)out\"
+  />
+  <UserMacro
+    Name="paxzOutDir"
+    Value="$(paxzOutPath)\$(ConfigurationName)_$(PlatformName)"
+  />
 </VisualStudioPropertySheet>
