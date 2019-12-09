@@ -270,8 +270,8 @@ int cache::get_lz4_content_size(HANDLE hFile, UINT64 & content_size)
   DWORD dw;
 
   pos.QuadPart = 0;
-  dw = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x44003400 | E_EREAD);
+  BOOL xp = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x44003400 | E_EREAD);
 
   size_t rsz = LZ4F_HEADER_SIZE_MAX;
   BOOL x = ReadFile(hFile, buf, (DWORD)rsz, &dw, NULL);
@@ -354,8 +354,8 @@ int cache::scan_pax_file(HANDLE hFile)
   buf.resize(buf_size);
 
   pos.QuadPart = 0;
-  dw = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x45010300 | E_EOPEN);
+  BOOL xp = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x45010300 | E_EOPEN);
 
   UINT64 file_size = m_arcfile.get_size();
   UINT64 read_size = 0;
@@ -402,8 +402,8 @@ int cache::scan_pax_file(HANDLE hFile)
         break;
       }
       pos.QuadPart = read_size;
-      dw = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-      FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x45015500 | E_EOPEN);
+      BOOL xp = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+      FIN_IF(xp == FALSE, 0x45015500 | E_EOPEN);
     }  
   }
   m_end = read_size;
@@ -430,8 +430,8 @@ int cache::scan_paxlz4_file(HANDLE hFile)
   dst.resize(buf_size);
   
   pos.QuadPart = m_arcfile.get_data_begin();
-  dw = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x44010300 | E_EOPEN);
+  BOOL xp = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x44010300 | E_EOPEN);
 
   UINT64 file_size = m_arcfile.get_size();
   lz4::frame_info frame;
@@ -548,8 +548,8 @@ int cache::scan_paxlz4_file(HANDLE hFile)
         }
         size_t sz = (blksize & (~lz4::BLOCKUNCOMPRES_FLAG)) + 4;  /* + BlockCkSum */
         pos.QuadPart += sz;
-        x = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-        FIN_IF(x == INVALID_SET_FILE_POINTER, 0x44143000 | E_EOPEN);
+        BOOL xp = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+        FIN_IF(xp == FALSE, 0x44143000 | E_EOPEN);
         total_size += sz;
 
         BOOL x = ReadFile(hFile, &blksize, sizeof(blksize), &dw, NULL);

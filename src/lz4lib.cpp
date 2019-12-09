@@ -16,7 +16,6 @@ Format check_frame_magic(DWORD magic)
 int check_file_header(HANDLE hFile, UINT64 file_size)
 {
   int hr = -1;
-  DWORD dw;
   LARGE_INTEGER pos;
   BOOL x;
   union {
@@ -31,8 +30,8 @@ int check_file_header(HANDLE hFile, UINT64 file_size)
   }
   FIN_IF(file_size < LZ4F_HEADER_SIZE_MIN, -3);
   pos.QuadPart = 0;
-  dw = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, -4);
+  BOOL xp = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, -4);
 
   x = ReadFile(hFile, &header.magic, sizeof(header.magic), &dwRead, NULL);
   FIN_IF(!x, -5);

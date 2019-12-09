@@ -184,8 +184,8 @@ int arcfile::update_type(HANDLE hFile)
   FIN_IF(m_size < LZ4F_HEADER_SIZE_MIN, 0x6076000 | E_EOPEN);
   
   pos.QuadPart = 0;
-  dw = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x6077000 | E_EOPEN);
+  BOOL xp = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x6077000 | E_EOPEN);
 
   size_t rsz = (m_size > sizeof(buf)) ? sizeof(buf) : (size_t)m_size;
   x = ReadFile(hFile, buf, (DWORD)rsz, &dw, NULL);

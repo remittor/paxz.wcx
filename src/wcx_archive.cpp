@@ -280,8 +280,8 @@ int archive::extract_pax(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   pos = m_cur_file->pax.pos + m_cur_file->pax.hdr_size;    
   FIN_IF(pos >= file_size, 0x131000 | E_EOPEN);
   fpos.QuadPart = pos;
-  dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x132000 | E_EOPEN);
+  BOOL xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x132000 | E_EOPEN);
   data_size = m_cur_file->data_size;
   if (pos + data_size > file_size) {
     data_size = file_size - pos;   // may be ERROR ???
@@ -332,8 +332,8 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   UINT64 data_size = 0;
 
   pos = 0;
-  dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x142000 | E_EOPEN);
+  BOOL xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x142000 | E_EOPEN);
 
   hDstFile = create_new_file(fn);
   FIN_IF(!hDstFile, 0x143000 | E_ECREATE);
@@ -401,8 +401,8 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
       BOOL x = ReadFile(m_file, &size, sizeof(size), (PDWORD)&nbReadBytes, NULL);
       FIN_IF(!x || nbReadBytes != sizeof(size), 0x155000 | E_EREAD);
       pos += sizeof(size) + size;
-      DWORD dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
-      FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x156000 | E_EREAD);
+      BOOL xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
+      FIN_IF(xp == FALSE, 0x156000 | E_EREAD);
       int ret = m_cb.tell_process_data(pos);
       FIN_IF(ret == psCancel, 0);   // user press Cancel
       break;
@@ -420,8 +420,8 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
         FIN_IF(!x || nbReadBytes != sizeof(blockSize), 0x163000 | E_EREAD);
         if (blockSize > LZ4_COMPRESSBOUND(lz4::LEGACY_BLOCKSIZE)) {
           /* Cannot read next block : maybe new stream ? */
-          DWORD dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
-          FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x164000 | E_EREAD);
+          BOOL xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
+          FIN_IF(xp == FALSE, 0x164000 | E_EREAD);
           break;
         }
         pos += sizeof(blockSize);
@@ -472,8 +472,8 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   UINT64 written = 0;
 
   pos = m_cur_file->pax.pos + m_cur_file->pax.hdr_p_size;
-  dw = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, 0x171000 | E_EOPEN);
+  BOOL xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x171000 | E_EOPEN);
 
   hDstFile = create_new_file(fn);
   FIN_IF(!hDstFile, 0x172000 | E_ECREATE);

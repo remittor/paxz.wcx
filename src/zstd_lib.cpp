@@ -18,9 +18,7 @@ Format check_frame_magic(DWORD magic)
 int check_file_header(HANDLE hFile, UINT64 file_size)
 {
   int hr = -1;
-  DWORD dw;
   LARGE_INTEGER pos;
-  BOOL x;
   union {
     BYTE  buf[FRAMEHEADER_SIZE_MIN];
     DWORD magic;
@@ -28,15 +26,15 @@ int check_file_header(HANDLE hFile, UINT64 file_size)
   DWORD dwRead = 0;
 
   if (file_size == 0) {
-    x = GetFileSizeEx(hFile, (PLARGE_INTEGER)&file_size);
+    BOOL x = GetFileSizeEx(hFile, (PLARGE_INTEGER)&file_size);
     FIN_IF(!x, -2);
   }
   FIN_IF(file_size < FRAMEHEADER_SIZE_MIN, -3);
   pos.QuadPart = 0;
-  dw = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
-  FIN_IF(dw == INVALID_SET_FILE_POINTER, -4);
+  BOOL xp = SetFilePointerEx(hFile, pos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, -4);
 
-  x = ReadFile(hFile, &header.magic, sizeof(header.magic), &dwRead, NULL);
+  BOOL x = ReadFile(hFile, &header.magic, sizeof(header.magic), &dwRead, NULL);
   FIN_IF(!x, -5);
   FIN_IF(dwRead != sizeof(header.magic), -6);
 
