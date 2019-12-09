@@ -34,8 +34,9 @@ public:
 public:
   HANDLE create_new_file(LPCWSTR fn);
   int extract_pax(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile);
-  int extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile);
+  int extract_native(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile);
   int extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile);
+  int extract_paxzst(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile);
   int extract_dir();  /* !!! mega hack !!! */
 
   wcx::cfg       m_cfg;
@@ -58,6 +59,9 @@ public:
   struct {
     lz4::decode_context ctx;
   } m_lz4;
+  struct {
+    zst::decode_context ctx;
+  } m_zst;
 };
 
 typedef bst::list<archive> archive_list;

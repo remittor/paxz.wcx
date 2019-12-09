@@ -129,7 +129,8 @@ protected:
   int add_pax_info(tar::pax_decode & pax, UINT64 file_pos, int hdr_pack_size, UINT64 total_size);
   int scan_pax_file(HANDLE hFile);
   int scan_paxlz4_file(HANDLE hFile);
-  
+  int scan_paxzst_file(HANDLE hFile);
+
 
   size_t          m_index;      // object index in cache list
   cache_list    & m_list;

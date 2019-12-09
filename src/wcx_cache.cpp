@@ -208,7 +208,16 @@ int cache::init(wcx::arcfile * af)
     hr = scan_pax_file(hFile);
     FIN(hr);
   }
-  
+
+  if (m_arcfile.get_type() == atPaxZstd) {
+    hr = scan_paxzst_file(hFile);
+    FIN_IF(!hr, 0);
+    WLOGw(L"%S: Incorrect PAXZ archive \"%s\" (err = 0x%X) ", __func__, get_name(), hr);
+    clear();
+    m_arcfile.set_type(atZstd);
+    hr = 0;
+  }
+
   if (m_arcfile.get_type() == atPaxLz4) {
     hr = scan_paxlz4_file(hFile);
     FIN_IF(!hr, 0);
@@ -237,6 +246,9 @@ int cache::init(wcx::arcfile * af)
   UINT64 content_size = 0;
   DWORD file_attr = FILE_ATTRIBUTE_NORMAL | FILE_ATTRIBUTE_ARCHIVE;
 
+  if (m_arcfile.get_type() == atZstd) {
+    content_size = 0;
+  }
   if (m_arcfile.get_type() == atLz4) {
     hr = get_lz4_content_size(hFile, content_size);
     FIN_IF(hr, hr);
@@ -569,10 +581,91 @@ fin:
   return hr;
 }
 
-//int cache::read_pax_header(HANDLE hFile)
-//{
-//  return 0;
-//}
+int cache::scan_paxzst_file(HANDLE hFile)
+{
+  int hr = 0;
+  union {
+    LARGE_INTEGER fpos;
+    UINT64 pos;
+  };
+  size_t nbReaded = 0;;
+  bst::buf buf;
+  bst::buf dst;
+  tar::pax_decode pax;
+  zst::decode_context dctx;
+
+  const size_t buf_size = 2*1024*1024;
+
+  FIN_IF(!buf.reserve(buf_size), 0x74010100 | E_EOPEN);
+  buf.resize(buf_size);
+
+  FIN_IF(!dst.reserve(buf_size), 0x74102000 | E_EOPEN);
+  dst.resize(buf_size);
+
+  pos = m_arcfile.get_data_begin();
+  BOOL xp = SetFilePointerEx(hFile, fpos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x74103000 | E_EOPEN);
+
+  UINT64 file_size = m_arcfile.get_size();
+  zst::frame_info frame;
+
+  const size_t frame_header_size = zst::FRAMEHEADER_SIZE_MIN + zst::BLOCKHEADERSIZE;  /* + BlockHeader */
+  while(1) {
+    UINT64 hdr_pos = pos;
+    BOOL x = ReadFile(hFile, buf.data(), 4, (PDWORD)&nbReaded, NULL);
+    FIN_IF(!x || nbReaded != 4, 0x74104000 | E_EOPEN);
+    pos += 4;
+    DWORD magic = *(PDWORD)buf.data();
+    FIN_IF(magic != zst::MAGICNUMBER && magic != paxz::FRAME_MAGIC, 0x74104300 | E_EOPEN);
+    if (magic == paxz::FRAME_MAGIC) {
+      paxz::frame_end endframe;
+      endframe.magic = magic;
+      size_t sz = sizeof(paxz::frame_end) - sizeof(endframe.magic);
+      BOOL x = ReadFile(hFile, &endframe.size, (DWORD)sz, (PDWORD)&nbReaded, NULL);
+      FIN_IF(!x || nbReaded != sz, 0x74104700 | E_EOPEN);
+      pos += sz;
+      FIN_IF(endframe.is_valid() == false, 0x74104900 | E_EOPEN);
+      FIN(0);   /* end of PAXZ */
+    }
+    int fsz = frame.read_frame(hFile, buf.data(), buf.size(), true);
+    FIN_IF(fsz <= 0, 0x74107500 | E_EOPEN);
+    pos += fsz - 4;   /* magic size already added */
+    int hdr_pack_size = fsz;
+    FIN_IF(frame.get_type() != ZSTD_frame, 0x74112100 | E_EOPEN);
+    FIN_IF(frame.is_unknown_content_size(), 0x74112200 | E_EOPEN);
+    FIN_IF(frame.get_content_size() < tar::BLOCKSIZE, 0x74113000 | E_EOPEN);
+    FIN_IF(frame.get_content_size() & tar::BLOCKSIZE_MASK, 0x74114000 | E_EOPEN);
+    FIN_IF(frame.get_content_size() >= buf_size, 0x74114500 | E_EOPEN);
+    FIN_IF(frame.m_block.size == 0, 0x74115000 | E_EOPEN);
+    FIN_IF(frame.m_header.checksumFlag == 0, 0x74116000 | E_EOPEN);
+
+    int dsz = dctx.frame_decode(buf.data(), fsz, dst.data(), dst.size());
+    FIN_IF(dsz <= 0, 0x74117100 | E_EOPEN);
+    size_t sz = (size_t)dsz;
+    FIN_IF(sz != (size_t)frame.get_content_size(), 0x74117200 | E_EOPEN);
+
+    pax.clear();
+    hr = pax.add_header(dst.data(), sz);
+    FIN_IF(hr, 0x74121000 | E_EOPEN);
+    if (pax.is_big_header()) {
+      hr = pax.add_header(dst.data(), sz);
+      FIN_IF(hr, 0x74133000 | E_EOPEN);
+    }
+    UINT64 frame_size = 0;
+    if (pax.m_info.size) {
+      hr = frame.read_frame(hFile, &frame_size, false);
+      FIN_IF(hr, 0x74143000 | E_EOPEN);
+      pos += frame_size;
+    }
+    hr = add_pax_info(pax, hdr_pos, hdr_pack_size, frame_size + hdr_pack_size);
+    FIN_IF(hr, hr | E_EOPEN);
+  }
+
+  hr = 0;
+
+fin:
+  return hr;
+}
 
 // =============================================================================================
 

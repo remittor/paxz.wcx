@@ -217,13 +217,17 @@ int archive::extract(int Operation, LPCWSTR DestPath, LPCWSTR DestName)
       hr = extract_pax(m_filename.c_str(), file_size, hDstFile);
       FIN_IF(hr, hr | E_EREAD);      
     }
-    if (m_cache->get_type() == wcx::atLz4) {
+    if (m_cache->get_type() == wcx::atLz4 || m_cache->get_type() == wcx::atZstd) {
       m_cb.set_total_read(file_size);   /* set reading mode */
-      hr = extract_lz4(m_filename.c_str(), file_size, hDstFile);
+      hr = extract_native(m_filename.c_str(), file_size, hDstFile);
       FIN_IF(hr, hr | E_EREAD);
     }
     if (m_cache->get_type() == wcx::atPaxLz4) {
       hr = extract_paxlz4(m_filename.c_str(), file_size, hDstFile);
+      FIN_IF(hr, hr | E_EREAD);
+    }
+    if (m_cache->get_type() == wcx::atPaxZstd) {
+      hr = extract_paxzst(m_filename.c_str(), file_size, hDstFile);
       FIN_IF(hr, hr | E_EREAD);
     }
     memset(&fbi, 0, sizeof(fbi));    
@@ -319,7 +323,7 @@ fin:
   return hr;
 }
 
-int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
+int archive::extract_native(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
 {
   int hr = 0;
   DWORD magicNumber;
@@ -352,6 +356,50 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
       magicNumber = lz4::LZ4IO_SKIPPABLE0;
 
     switch (magicNumber) {
+    case zst::MAGICNUMBER: {
+      hr = m_zst.ctx.init();
+      FIN_IF(hr, 0x144700 | E_EREAD);
+      memcpy(m_buf.data(), &magicNumber, sizeof(magicNumber));
+      size_t srcBufferLoaded = sizeof(magicNumber);
+      size_t toRead = ZSTD_FRAMEHEADERSIZE_MAX - srcBufferLoaded;
+      BOOL x = ReadFile(m_file, m_buf.data() + srcBufferLoaded, (DWORD)toRead, (PDWORD)&nbReadBytes, NULL);
+      FIN_IF(!x, 0x7146000 | E_EREAD);
+      FIN_IF(nbReadBytes == 0, 0);  /* EOF */
+      pos += nbReadBytes;
+      srcBufferLoaded += nbReadBytes;
+      FIN_IF(srcBufferLoaded < zst::FRAMEHEADER_SIZE_MIN, 0x7146100 | E_EREAD);
+
+      while (1) {
+        ZSTD_inBuffer  inBuff  = { m_buf.data(), srcBufferLoaded, 0 };
+        ZSTD_outBuffer outBuff = { m_dst.data(), m_dst.size(), 0 };
+        size_t readSizeHint = ZSTD_decompressStream(m_zst.ctx.get_ctx(), &outBuff, &inBuff);
+        FIN_IF(ZSTD_isError(readSizeHint), 0x7146300 | E_EREAD);
+        if (outBuff.pos) {
+          BOOL x = WriteFile(hDstFile, m_dst.c_data(), (DWORD)outBuff.pos, &dw, NULL);
+          FIN_IF(!x || outBuff.pos != dw, 0x7146600 | E_EWRITE);
+        }
+        if (readSizeHint == 0)  /* end of frame */
+          break;
+
+        if (inBuff.pos > 0) {
+          memmove(m_buf.data(), m_buf.data() + inBuff.pos, inBuff.size - inBuff.pos);
+          srcBufferLoaded -= inBuff.pos;
+        }
+        size_t toDecode = BST_MIN(readSizeHint, m_buf.size());  /* support large skippable frames */
+        if (srcBufferLoaded < toDecode) {
+          size_t toRead = toDecode - srcBufferLoaded;
+          BOOL x = ReadFile(m_file, m_buf.data() + srcBufferLoaded, (DWORD)toRead, (PDWORD)&nbReadBytes, NULL);
+          FIN_IF(!x, 0x7147100 | E_EREAD);
+          FIN_IF(nbReadBytes == 0, 0x7147200 | E_EREAD);
+          pos += nbReadBytes;
+          srcBufferLoaded += nbReadBytes;
+        }
+        int ret = m_cb.tell_process_data(pos);
+        FIN_IF(ret == psCancel, 0);   // user press Cancel
+      }
+      break;
+    }
+
     case lz4::LZ4IO_MAGICNUMBER: {
       hr = m_lz4.ctx.init();
       FIN_IF(hr, 0x144400 | E_EREAD);
@@ -453,7 +501,7 @@ int archive::extract_lz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
 
 fin:
   if (hr >= 0x145000) {
-    hr = 0;   // ignore ALL errors on unpacking LZ4 stream
+    hr = 0;   // ignore ALL errors on unpacking LZ4/Zstd stream
     m_delete_out_file = false;
   }  
   return hr;
@@ -537,6 +585,95 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
       if (!nextToLoad)
         break;
     } 
+  }
+
+  hr = 0;
+  m_delete_out_file = false;
+  ret = m_cb.tell_process_data(written);
+  FIN_IF(ret == psCancel, 0);   // user press Cancel
+
+fin:
+  return hr;
+}
+
+int archive::extract_paxzst(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
+{
+  int hr = 0;
+  DWORD magicNumber;
+  size_t nbReadBytes = 0;
+  union {
+    UINT64 pos;
+    LARGE_INTEGER fpos;
+  };
+  DWORD dw;
+  UINT64 data_size = 0;
+  UINT64 written = 0;
+
+  pos = m_cur_file->pax.pos + m_cur_file->pax.hdr_p_size;
+  BOOL const xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
+  FIN_IF(xp == FALSE, 0x7171000 | E_EOPEN);
+
+  hDstFile = create_new_file(fn);
+  FIN_IF(!hDstFile, 0x7172000 | E_ECREATE);
+  if (m_cur_file->data_size == 0 || m_cur_file->pack_size == m_cur_file->pax.hdr_p_size) {
+    m_delete_out_file = false;   /* file have zero len */
+    FIN(0);
+  }
+  m_delete_out_file = true;
+
+  int ret = m_cb.tell_process_data(0);
+  FIN_IF(ret == psCancel, 0);   // user press Cancel
+
+  hr = m_zst.ctx.init();
+  FIN_IF(hr, 0x7173000 | E_EREAD);
+
+  UINT64 end = file_size;
+
+  BOOL x = ReadFile(m_file, &magicNumber, sizeof(magicNumber), (PDWORD)&nbReadBytes, NULL);
+  FIN_IF(!x, 0x7174000 | E_EREAD);
+  FIN_IF(nbReadBytes != sizeof(magicNumber), 0x7174100 | E_EREAD);
+  pos += sizeof(magicNumber);
+
+  FIN_IF(magicNumber != zst::MAGICNUMBER, 0x7175000 | E_EREAD);
+
+  memcpy(m_buf.data(), &magicNumber, sizeof(magicNumber));
+  size_t srcBufferLoaded = sizeof(magicNumber);
+  size_t toRead = ZSTD_FRAMEHEADERSIZE_MAX - srcBufferLoaded;
+  x = ReadFile(m_file, m_buf.data() + srcBufferLoaded, (DWORD)toRead, (PDWORD)&nbReadBytes, NULL);
+  FIN_IF(!x, 0x7176000 | E_EREAD);
+  FIN_IF(nbReadBytes == 0, 0x7176100 | E_EREAD);
+  pos += nbReadBytes;
+  srcBufferLoaded += nbReadBytes;
+  FIN_IF(srcBufferLoaded < zst::FRAMEHEADER_SIZE_MIN, 0x7176200 | E_EREAD);
+
+  while (1) {
+    ZSTD_inBuffer  inBuff  = { m_buf.data(), srcBufferLoaded, 0 };
+    ZSTD_outBuffer outBuff = { m_dst.data(), m_dst.size(), 0 };
+    size_t readSizeHint = ZSTD_decompressStream(m_zst.ctx.get_ctx(), &outBuff, &inBuff);
+    FIN_IF(ZSTD_isError(readSizeHint), 0x7176300 | E_EREAD);
+    if (outBuff.pos) {
+      BOOL x = WriteFile(hDstFile, m_dst.c_data(), (DWORD)outBuff.pos, &dw, NULL);
+      FIN_IF(!x || outBuff.pos != dw, 0x7176600 | E_EWRITE);
+      written += dw;
+      int ret = m_cb.tell_process_data(written);
+      FIN_IF(ret == psCancel, 0);   // user press Cancel
+    }
+    if (readSizeHint == 0)  /* end of frame */
+      break;   
+
+    if (inBuff.pos > 0) {
+      memmove(m_buf.data(), m_buf.data() + inBuff.pos, inBuff.size - inBuff.pos);
+      srcBufferLoaded -= inBuff.pos;
+    }
+    size_t toDecode = BST_MIN(readSizeHint, m_buf.size());  /* support large skippable frames */
+    if (srcBufferLoaded < toDecode) {
+      size_t toRead = toDecode - srcBufferLoaded;
+      BOOL x = ReadFile(m_file, m_buf.data() + srcBufferLoaded, (DWORD)toRead, (PDWORD)&nbReadBytes, NULL);
+      FIN_IF(!x, 0x7177100 | E_EREAD);
+      FIN_IF(nbReadBytes == 0, 0x7177200 | E_EREAD);
+      pos += nbReadBytes;
+      srcBufferLoaded += nbReadBytes;
+    }
   }
 
   hr = 0;

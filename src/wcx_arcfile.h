@@ -5,6 +5,7 @@
 #include "wcx_cfg.h"
 #include "tar.h"
 #include "lz4lib.h"
+#include "zstd_lib.h"
 
 
 namespace wcx {
@@ -14,6 +15,8 @@ enum ArcType : char {
   atPax     = 1,
   atLz4     = 2,
   atPaxLz4  = 3,
+  atZstd    = 4,
+  atPaxZstd = 5,   /* PAXZ */
 };
 
 enum InitMode : char {
@@ -53,6 +56,7 @@ public:
   UINT64  get_size()     const { return m_size; }
   
   ArcType     get_type()       const { return m_type; }
+  zst::Format get_zst_format() const { return m_zstformat; }
   lz4::Format get_lz4_format() const { return m_lz4format; }
   tar::Format get_tar_format() const { return m_tarformat; }
   UINT64      get_ctime()      const { return m_ctime; }   
@@ -76,6 +80,7 @@ private:
   UINT64         m_volumeid;
   UINT64         m_fileid;
   ArcType        m_type;
+  zst::Format    m_zstformat;
   lz4::Format    m_lz4format;
   tar::Format    m_tarformat;
   paxz::frame_pax m_paxz;
