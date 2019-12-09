@@ -19,8 +19,8 @@ init:
 # clone directory
 clone_folder: c:\projects\paxz-wcx
 
-# fetch repository as zip archive
-shallow_clone: true
+# clone only last commit history
+clone_depth: 1
 
 environment:
   matrix:
@@ -37,7 +37,7 @@ matrix:
 install:
   - call build\appveyor\get-version.bat
   - call build\appveyor\set-env.bat
-  - call build\appveyor\install.bat
+  - git submodule update --depth 1 --init --recursive
 
 #---------------------------------#
 #       build configuration       #
