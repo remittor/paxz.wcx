@@ -651,10 +651,15 @@ int archive::extract_paxzst(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
     ZSTD_outBuffer outBuff = { m_dst.data(), m_dst.size(), 0 };
     size_t readSizeHint = ZSTD_decompressStream(m_zst.ctx.get_ctx(), &outBuff, &inBuff);
     FIN_IF(ZSTD_isError(readSizeHint), 0x7176300 | E_EREAD);
-    if (outBuff.pos) {
-      BOOL x = WriteFile(hDstFile, m_dst.c_data(), (DWORD)outBuff.pos, &dw, NULL);
-      FIN_IF(!x || outBuff.pos != dw, 0x7176600 | E_EWRITE);
-      written += dw;
+    size_t sz = outBuff.pos;
+    if (written + sz >= m_cur_file->data_size) {
+      sz = (size_t)(m_cur_file->data_size - written);
+      readSizeHint = 0;  /* stop decoding */
+    }
+    if (sz) {
+      BOOL x = WriteFile(hDstFile, m_dst.c_data(), (DWORD)sz, &dw, NULL);
+      FIN_IF(!x || sz != dw, 0x7176600 | E_EWRITE);
+      written += sz;
       int ret = m_cb.tell_process_data(written);
       FIN_IF(ret == psCancel, 0);   // user press Cancel
     }
