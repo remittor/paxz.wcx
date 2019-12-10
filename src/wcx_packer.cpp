@@ -66,15 +66,13 @@ int packer::set_compression_level(int cpr_level)
   if (cpr_level <= 0)
     cpr_level = -1;
 
-  if (m_ctype == ctLz4) {
-    if (cpr_level > LZ4HC_CLEVEL_DEFAULT)
-      cpr_level = LZ4HC_CLEVEL_DEFAULT;
-  }
-  if (m_ctype == ctZstd) {
-    if (cpr_level > zst::MAX_CLEVEL)
-      cpr_level = zst::MAX_CLEVEL;
-  }
+  if (cpr_level > 9)
+    cpr_level = 9;     /* LZ4HC_CLEVEL_DEFAULT = 9; ZSTD_MAX_CLEVEL = 22; */ 
+
   m_cpr_level = cpr_level;
+  if (m_ctype == ctZstd && m_cpr_level >= 1) {
+    m_cpr_level += 1;  /* 9 -> 10 */
+  }
   return 0;
 }
 
@@ -245,8 +243,8 @@ int packer::pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList)
   }
 
   set_block_size(m_buf.size());
+  LOGi("%s: compression level = %d", __func__, m_cfg.get_compression_level());
   set_compression_level(m_cfg.get_compression_level());
-  LOGi("%s: compression level = %d", __func__, m_cpr_level);
   m_start_time = GetTickCount();
   reset_ctx(true);
 
