@@ -1,7 +1,7 @@
 #pragma once
 
 #define WCX_VER_MAJOR     0
-#define WCX_VER_MINOR     3
+#define WCX_VER_MINOR     4
 
 #define WCX_VER_GET_STR(num)  WCX_VER_GET_STR2(num)
 #define WCX_VER_GET_STR2(num) #num
