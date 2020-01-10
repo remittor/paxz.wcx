@@ -1,4 +1,5 @@
-#include "stdafx.h"
+#define _CRT_SECURE_NO_WARNINGS
+
 #include "log.h"
 #include <stdio.h>
 #include <vadefs.h>
@@ -23,32 +24,50 @@ void WcxPrintMsgA(int level, const char * fmt, ...)
   if (level <= g_log_level && level > 0) {
     va_list argptr;
     va_start(argptr, fmt);
-    memcpy(buf, "[PAXZ-X]", 8);
-    buf[6] = g_log_level_str[level];
-    buf[8] = 0x20;
-    int len = _vsnprintf(buf + 9, _countof(buf)-2, fmt, argptr);
-    if (len < 0)
-      len = 0;
-    buf[9 + len] = 0;
-    OutputDebugStringA(buf);
+    const size_t prefix_len = 9;
+    memcpy(buf, "[PAXZ-X]", prefix_len - 1);
+    buf[prefix_len - 3] = g_log_level_str[level];
+    buf[prefix_len - 1] = 0x20;
+    int len = _vsnprintf(buf + prefix_len, _countof(buf)-2, fmt, argptr);
     va_end(argptr);
+    if (len < 0) {
+      strcat(buf, "<INCORRECT-INPUT-DATA> ");
+      strcat(buf, fmt);
+    } else {
+      len += prefix_len;
+      buf[len] = 0;
+    }
+    OutputDebugStringA(buf);
   }
 }
 
 void WcxPrintMsgW(int level, const wchar_t * fmt, ...)
 {
-  wchar_t buf[4096];
+  union {
+    struct {
+      wchar_t reserved[4];
+      wchar_t wbuf[4096];
+    };
+    char buf[4096 * 2];
+  };
   if (level <= g_log_level && level > 0) {
     va_list argptr;
     va_start(argptr, fmt);
-    memcpy(buf, L"[PAXZ-X]", 8 * sizeof(wchar_t));
-    buf[6] = (wchar_t)g_log_level_str[level];
-    buf[8] = 0x20;
-    int len = _vsnwprintf(buf + 9, _countof(buf)-2, fmt, argptr);
-    if (len < 0)
-      len = 0;
-    buf[9 + len] = 0;
-    OutputDebugStringW(buf);
+    const size_t prefix_len = 9;
+    memcpy(wbuf, L"[PAXZ-X]", (prefix_len - 1) * sizeof(wchar_t));
+    wbuf[prefix_len - 3] = (wchar_t)g_log_level_str[level];
+    wbuf[prefix_len - 1] = 0x20;
+    int len = _vsnwprintf(wbuf + prefix_len, _countof(wbuf)-2, fmt, argptr);
     va_end(argptr);
+    if (len < 0) {
+      wcscat(wbuf, L"<INCORRECT-INPUT-DATA> ");
+      wcscat(wbuf, fmt);
+      len = (int)wcslen(wbuf);
+    } else {
+      len += prefix_len;
+    }
+    len = WideCharToMultiByte(CP_ACP, 0, wbuf, len, (LPSTR)buf, sizeof(buf)-2, NULL, NULL);
+    buf[(len > 0) ? len : 0] = 0;
+    OutputDebugStringA(buf);
   }
 }
