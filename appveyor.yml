@@ -86,7 +86,6 @@ deploy:
     secure: 5eARyBFpqVn/Q2LPwiD5/YpEHXaEEnZ9Tv4YKQQJ8JzJr0/3DmvNhDOy2do8NMal
   force_update: true
   on:
-    branch: master                # release from master branch only
     appveyor_repo_tag: true       # deploy on tag push only
 
 # scripts to run before deployment
