@@ -37,7 +37,7 @@ matrix:
 install:
   - call build\appveyor\get-version.bat
   - call build\appveyor\set-env.bat
-  - git submodule update --depth 1 --init --recursive
+  - git submodule update --init --recursive
 
 #---------------------------------#
 #       build configuration       #
