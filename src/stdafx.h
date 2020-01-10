@@ -8,6 +8,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define _CRT_SECURE_NO_WARNINGS
 #define _CRT_NON_CONFORMING_SWPRINTFS
+#define NOMINMAX
 
 #include "targetver.h"
 #include <windows.h>
@@ -33,12 +34,12 @@
 /* block double using xxhash.h */
 #define XXH_STATIC_H_3543687687345
 
+#include "winntapi.h"
+#include "log.h"
 #include "wcxhead.h"
 #include "bst\string.hpp"
 #include "bst\list.hpp"
-#include "log.h"
 #include "utils.h"
-#include "winntapi.h"
 
 #include "paxz.h"
 

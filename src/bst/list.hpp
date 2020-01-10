@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "bst.hpp"
 #include "srw_lock.hpp"
 
 namespace bst {

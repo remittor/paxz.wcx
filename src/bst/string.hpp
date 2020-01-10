@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core.hpp"
+#include "bst.hpp"
 #include <cstdlib>
 #include <Shlwapi.h>
 #include <stdio.h>

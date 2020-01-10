@@ -2,30 +2,43 @@
 
 #include <windows.h>
 #include "config.hpp"
-#include "memory.hpp"
-#include "nondynamic.hpp"
-#include "noncopyable.hpp"
 
-#define BST_INLINE  __forceinline
+#define BST_INLINE       __forceinline
 
-#define BST_NOINLINE  __declspec(noinline)
+#define BST_FORCEINLINE  __forceinline
+
+#define BST_NOINLINE     __declspec(noinline)
+
+#define BST_NOTHROW      __declspec(nothrow)
 
 #if _MSC_VER < 1900
+#if !defined(__func__)
 #define __func__   __FUNCTION__
 #endif
-
-#if _MSC_VER < 1600
-#define nullptr  NULL
 #endif
 
-
 #if _MSC_VER < 1600
+#if !defined(nullptr)
+#define nullptr  NULL
+#endif
+#endif
+
+#if _MSC_VER < 1800
+#define BST_DEFAULT 
 #define BST_DELETED 
+#else
+#define BST_DEFAULT  =default
+#define BST_DELETED  =delete
+#endif 
+
+#if _MSC_FULL_VER < 180021114    /* noexcept added since vs2013 CTP */
+#if !defined(noexcept)
+#define noexcept throw()
+#endif
 #define BST_NOEXCEPT throw()
 #else
-#define BST_DELETED  =delete
 #define BST_NOEXCEPT noexcept
-#endif 
+#endif
 
 
 #define BST_MAX(a,b)    (((a) > (b)) ? (a) : (b))

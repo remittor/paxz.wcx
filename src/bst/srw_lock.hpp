@@ -1,7 +1,6 @@
 #pragma once
 
-#include "core.hpp"
-#include "noncopyable.hpp"
+#include "bst.hpp"
 
 namespace bst {
 
@@ -9,7 +8,7 @@ namespace bst {
 typedef struct _RTL_SRWLOCK {
   PVOID Ptr;
 } RTL_SRWLOCK, *PRTL_SRWLOCK;
-#define RTL_SRWLOCK_INIT {0}                            
+#define RTL_SRWLOCK_INIT {0}
 #endif
 
 class srw_lock : private noncopyable
