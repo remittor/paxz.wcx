@@ -214,21 +214,20 @@ int WINAPI SetTestMode(int reserved)
 
 // ==================================================================================================
 
-extern "C" BOOL WINAPI _CRT_INIT(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpReserved);
+extern "C" BOOL WINAPI _DllMainCRTStartup(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpReserved);
 
-BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpReserved)
+extern "C" BOOL WINAPI DllMain(HINSTANCE hInstDLL, DWORD fdwReason, LPVOID lpReserved)
 {
   if (fdwReason == DLL_PROCESS_ATTACH) {
+    volatile LPVOID ep = _DllMainCRTStartup;
     DWORD tid = GetCurrentThreadId();
     g_hInstance = hInstDLL;
-    _CRT_INIT(hInstDLL, fdwReason, lpReserved);
     LOGn("WCX Plugin Loaded ===================== Thread ID = 0x%X ========", tid);
     g_wcx.init(hInstDLL, tid);
-  }  
+  }
   if (fdwReason == DLL_PROCESS_DETACH) {
     DWORD tid = g_wcx.get_main_thread_id();
     LOGn("WCX Plugin unload! -------------------------------- 0x%X --------", tid);
-    _CRT_INIT(hInstDLL, fdwReason, lpReserved);
   }
   return TRUE;
 }

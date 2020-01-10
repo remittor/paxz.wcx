@@ -44,6 +44,7 @@ public:
   
   arcfile(const arcfile & af);  // copy ctor
   bool assign(const arcfile & af);
+  arcfile & operator= (const arcfile & af) { assign(af); return *this; }
   void clear();
   
   int  init(LPCWSTR arcName, InitMode mode);
