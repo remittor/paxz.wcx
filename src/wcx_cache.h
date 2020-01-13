@@ -37,12 +37,19 @@ public:
 
 #pragma pack(push, 1)
 
-typedef struct _pax_item {
-  UINT64     pos;
-  UINT32     hdr_p_size; // size of packed_header
-  UINT32     hdr_size;   // size of orig PAX header
-  UINT64     realsize;   // SCHILY.realsize
-} pax_item;
+struct cache_info {
+  struct {
+    UINT64   pos;
+    UINT32   hdr_p_size; // size of packed_header
+    UINT32   hdr_size;   // size of orig PAX header
+    UINT64   realsize;   // SCHILY.realsize
+  } pax;
+  UINT64     data_size; // orig content size
+  UINT64     pack_size; // total_size = packed_header + packed_content
+  DWORD      attr;      // windows file attributes
+  INT64      ctime;     // creation time
+  INT64      mtime;     // modification time
+};
 
 struct cache_item {
   UINT32     item_size;
@@ -50,12 +57,7 @@ struct cache_item {
   BYTE       dummy;
   BYTE       flags;
   BYTE       type;
-  pax_item   pax;
-  UINT64     data_size; // orig content size
-  UINT64     pack_size; // total_size = packed_header + packed_content
-  DWORD      attr;      // windows file attributes
-  INT64      ctime;     // creation time
-  INT64      mtime;     // modification time
+  cache_info info;
   UINT16     name_len;
   WCHAR      name[1];
 };
@@ -63,7 +65,7 @@ struct cache_item {
 #pragma pack(pop)
 
 
-class cache_list;
+class cache_list;  /* forward declaration */
 
 class cache
 {
@@ -92,8 +94,8 @@ public:
   status get_status() { return m_status; }
   void   set_status(status st) { m_status = st; }
 
-  cache_item * add_file(LPCWSTR name, UINT64 size, BYTE type = 0);
-  cache_item * add_file_internal(LPCWSTR name, UINT64 size, DWORD attr);
+  cache_item * add_file(LPCWSTR fullname, UINT64 size, BYTE type = 0);
+  cache_item * add_file_internal(LPCWSTR fullname, UINT64 size, DWORD attr);
   cache_item * get_next_file(cache_enum & ce);
   
   bst::srw_lock & get_mutex() { return m_mutex; }
@@ -118,8 +120,6 @@ public:
   int init(wcx::arcfile * af = NULL);
   int add_ref();
   int release();
-  
-  int dump_to_file(LPCWSTR file_name);
 
 protected:  
   static const size_t block_header_size = sizeof(LPVOID);

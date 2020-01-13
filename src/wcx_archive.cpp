@@ -105,7 +105,7 @@ int archive::list(tHeaderDataExW * hdr)
       continue;
     if (ci->name_len < _countof(hdr->FileName))
       break;    
-    WLOGw(L"%S: <<<SKIP LONG FILE>>> data_size = %I64d \"%s\"  ", __func__, ci->data_size, ci->name);
+    WLOGw(L"%S: <<<SKIP LONG FILE>>> data_size = %I64d \"%s\"  ", __func__, ci->info.data_size, ci->name);
   }  
   if (!ci) {
     LOGi("%s: <<<END OF FILE LIST>>> (file count = %I64d) ", __func__, get_file_count());
@@ -114,7 +114,7 @@ int archive::list(tHeaderDataExW * hdr)
     FIN(E_END_ARCHIVE);
   }
 
-  WLOGd(L"%S: \"%s\" data_size = %I64d ", __func__, ci->name, ci->data_size);
+  WLOGd(L"%S: \"%s\" data_size = %I64d ", __func__, ci->name, ci->info.data_size);
   FIN_IF(ci->name_len >= _countof(hdr->FileName), E_SMALL_BUF);
 
   memset(hdr, 0, sizeof(*hdr));
@@ -122,14 +122,14 @@ int archive::list(tHeaderDataExW * hdr)
   //hdr->ArcName[_countof(hdr->ArcName) - 1] = 0;
   wcsncpy(hdr->FileName, ci->name, _countof(hdr->FileName));
   hdr->FileName[_countof(hdr->FileName) - 1] = 0;
-  hdr->FileAttr = get_tc_fileattr(ci->attr);
-  hdr->FileTime = get_tc_filetime(ci->mtime);
-  hdr->PackSize = ci->pack_size;
-  hdr->UnpSize  = ci->data_size;
-  if (ci->pax.realsize > ci->data_size)
-    hdr->UnpSize = ci->pax.realsize;
+  hdr->FileAttr = get_tc_fileattr(ci->info.attr);
+  hdr->FileTime = get_tc_filetime(ci->info.mtime);
+  hdr->PackSize = ci->info.pack_size;
+  hdr->UnpSize  = ci->info.data_size;
+  if (ci->info.pax.realsize > ci->info.data_size)
+    hdr->UnpSize = ci->info.pax.realsize;
   if (m_open_mode == PK_OM_EXTRACT) {
-    if (ci->attr & FILE_ATTRIBUTE_DIRECTORY) {
+    if (ci->info.attr & FILE_ATTRIBUTE_DIRECTORY) {
       m_cur_dir = ci;
     } else {
       m_cur_file = ci;
@@ -231,15 +231,15 @@ int archive::extract(int Operation, LPCWSTR DestPath, LPCWSTR DestName)
       FIN_IF(hr, hr | E_EREAD);
     }
     memset(&fbi, 0, sizeof(fbi));    
-    fbi.FileAttributes = m_cur_file->attr;
-    if (m_cur_file->ctime > 0) {
-      fbi.CreationTime.QuadPart = m_cur_file->ctime;
+    fbi.FileAttributes = m_cur_file->info.attr;
+    if (m_cur_file->info.ctime > 0) {
+      fbi.CreationTime.QuadPart = m_cur_file->info.ctime;
     }
-    if (m_cur_file->mtime > 0) {
-      fbi.LastWriteTime.QuadPart = m_cur_file->mtime;
-      fbi.LastAccessTime.QuadPart = m_cur_file->mtime;
+    if (m_cur_file->info.mtime > 0) {
+      fbi.LastWriteTime.QuadPart = m_cur_file->info.mtime;
+      fbi.LastAccessTime.QuadPart = m_cur_file->info.mtime;
       if (fbi.CreationTime.QuadPart == 0)
-        fbi.CreationTime.QuadPart = m_cur_file->mtime;
+        fbi.CreationTime.QuadPart = m_cur_file->info.mtime;
     }
   }
 
@@ -281,12 +281,12 @@ int archive::extract_pax(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   UINT64 data_size = 0;
   UINT64 written = 0;
 
-  pos = m_cur_file->pax.pos + m_cur_file->pax.hdr_size;    
+  pos = m_cur_file->info.pax.pos + m_cur_file->info.pax.hdr_size;    
   FIN_IF(pos >= file_size, 0x131000 | E_EOPEN);
   fpos.QuadPart = pos;
   BOOL xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
   FIN_IF(xp == FALSE, 0x132000 | E_EOPEN);
-  data_size = m_cur_file->data_size;
+  data_size = m_cur_file->info.data_size;
   if (pos + data_size > file_size) {
     data_size = file_size - pos;   // may be ERROR ???
   }
@@ -519,13 +519,13 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   DWORD dw;
   UINT64 written = 0;
 
-  pos = m_cur_file->pax.pos + m_cur_file->pax.hdr_p_size;
+  pos = m_cur_file->info.pax.pos + m_cur_file->info.pax.hdr_p_size;
   BOOL xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
   FIN_IF(xp == FALSE, 0x171000 | E_EOPEN);
 
   hDstFile = create_new_file(fn);
   FIN_IF(!hDstFile, 0x172000 | E_ECREATE);
-  if (m_cur_file->data_size == 0 || m_cur_file->pack_size == m_cur_file->pax.hdr_p_size) {
+  if (m_cur_file->info.data_size == 0 || m_cur_file->info.pack_size == m_cur_file->info.pax.hdr_p_size) {
     m_delete_out_file = false;   /* file have zero len */
     FIN(0);
   }
@@ -571,8 +571,8 @@ int archive::extract_paxlz4(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
       FIN_IF(LZ4F_isError(nextToLoad), 0x181000 | E_EREAD);
       offset += remaining;
       size_t sz = decodedBytes;
-      if (written + sz >= m_cur_file->data_size) {
-        sz = (size_t)(m_cur_file->data_size - written);
+      if (written + sz >= m_cur_file->info.data_size) {
+        sz = (size_t)(m_cur_file->info.data_size - written);
         nextToLoad = 0;  /* stop decoding */
       }
       if (sz) {
@@ -609,13 +609,13 @@ int archive::extract_paxzst(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
   UINT64 data_size = 0;
   UINT64 written = 0;
 
-  pos = m_cur_file->pax.pos + m_cur_file->pax.hdr_p_size;
+  pos = m_cur_file->info.pax.pos + m_cur_file->info.pax.hdr_p_size;
   BOOL const xp = SetFilePointerEx(m_file, fpos, NULL, FILE_BEGIN);
   FIN_IF(xp == FALSE, 0x7171000 | E_EOPEN);
 
   hDstFile = create_new_file(fn);
   FIN_IF(!hDstFile, 0x7172000 | E_ECREATE);
-  if (m_cur_file->data_size == 0 || m_cur_file->pack_size == m_cur_file->pax.hdr_p_size) {
+  if (m_cur_file->info.data_size == 0 || m_cur_file->info.pack_size == m_cur_file->info.pax.hdr_p_size) {
     m_delete_out_file = false;   /* file have zero len */
     FIN(0);
   }
@@ -652,8 +652,8 @@ int archive::extract_paxzst(LPCWSTR fn, UINT64 file_size, HANDLE & hDstFile)
     size_t readSizeHint = ZSTD_decompressStream(m_zst.ctx.get_ctx(), &outBuff, &inBuff);
     FIN_IF(ZSTD_isError(readSizeHint), 0x7176300 | E_EREAD);
     size_t sz = outBuff.pos;
-    if (written + sz >= m_cur_file->data_size) {
-      sz = (size_t)(m_cur_file->data_size - written);
+    if (written + sz >= m_cur_file->info.data_size) {
+      sz = (size_t)(m_cur_file->info.data_size - written);
       readSizeHint = 0;  /* stop decoding */
     }
     if (sz) {
@@ -719,18 +719,18 @@ int archive::extract_dir()
   FIN_IF(time_diff < 0, 0);                  // UB
   FIN_IF(time_diff > 30 * WINDOWS_TICK, 0);  // 30 seconds
 
-  FIN_IF(dir->ctime <= 0 && dir->mtime <= 0, 0);
+  FIN_IF(dir->info.ctime <= 0 && dir->info.mtime <= 0, 0);
   
-  fbi.FileAttributes = dir->attr;
+  fbi.FileAttributes = dir->info.attr;
   fbi.CreationTime.QuadPart = 0;
-  if (dir->ctime > 0) {
-    fbi.CreationTime.QuadPart = dir->ctime;
+  if (dir->info.ctime > 0) {
+    fbi.CreationTime.QuadPart = dir->info.ctime;
   }
-  if (dir->mtime > 0) {
-    fbi.LastWriteTime.QuadPart = dir->mtime;
-    fbi.LastAccessTime.QuadPart = dir->mtime;
+  if (dir->info.mtime > 0) {
+    fbi.LastWriteTime.QuadPart = dir->info.mtime;
+    fbi.LastAccessTime.QuadPart = dir->info.mtime;
     if (fbi.CreationTime.QuadPart == 0)
-      fbi.CreationTime.QuadPart = dir->mtime;
+      fbi.CreationTime.QuadPart = dir->info.mtime;
   }
   
   WLOGd(L"%S(%d): <<<UPDATE DIR>>> \"%s\" ", __func__, m_operation, m_filename.c_str());

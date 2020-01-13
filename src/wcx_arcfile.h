@@ -6,6 +6,7 @@
 #include "tar.h"
 #include "lz4lib.h"
 #include "zstd_lib.h"
+#include "paxz.h"
 
 
 namespace wcx {

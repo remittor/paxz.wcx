@@ -52,21 +52,21 @@ bool cache::is_same_file(const arcfile & af)
   return (m_status == stZombie) ? false : m_arcfile.is_same_file(af);
 }
 
-cache_item * cache::add_file(LPCWSTR name, UINT64 size, BYTE type)
+cache_item * cache::add_file(LPCWSTR fullname, UINT64 size, BYTE type)
 {
   bst::scoped_write_lock lock(m_mutex);
-  return add_file_internal(name, size, type);
+  return add_file_internal(fullname, size, type);
 }  
 
-cache_item * cache::add_file_internal(LPCWSTR name, UINT64 size, DWORD attr)
+cache_item * cache::add_file_internal(LPCWSTR fullname, UINT64 size, DWORD attr)
 {
   int hr = 0;
   cache_item * item = NULL;
   size_t name_len, item_size;
 
-  if (!name)
+  if (!fullname)
     return NULL;
-  name_len = wcslen(name);
+  name_len = wcslen(fullname);
   if (!name_len)
     return NULL;
   item_size = sizeof(cache_item) + name_len * sizeof(WCHAR);
@@ -87,10 +87,10 @@ cache_item * cache::add_file_internal(LPCWSTR name, UINT64 size, DWORD attr)
   }
   
   item = (cache_item *)(m_block + m_block_pos);
-  item->data_size = size;
-  item->attr = attr;
+  item->info.data_size = size;
+  item->info.attr = attr;
   item->name_len = (UINT16)name_len;
-  memcpy(item->name, name, name_len * sizeof(WCHAR));
+  memcpy(item->name, fullname, name_len * sizeof(WCHAR));
   item->name[name_len] = 0;
   item->item_size = (UINT32)item_size;
   m_block_pos += item_size;
@@ -153,25 +153,6 @@ int cache::update_time(HANDLE hFile)
   if (!xb)
     return 0x51300 | E_EREAD;
   return update_time(ctime, mtime);
-}
-
-int cache::dump_to_file(LPCWSTR file_name)
-{
-  DeleteFileW(file_name);
-  HANDLE hFile = CreateFileW(file_name, GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-  if (!hFile || (hFile == INVALID_HANDLE_VALUE))
-    return -1;
-  DWORD dwSize = 0;
-  if (m_root_blk) {
-    PBYTE cur_block = m_root_blk;
-    do {
-      WriteFile(hFile, cur_block, (DWORD)alloc_block_size, &dwSize, NULL);
-      PBYTE next_block = get_next_block(cur_block);      
-      cur_block = next_block;
-    } while (cur_block);
-  }
-  CloseHandle(hFile);
-  return 0; 
 }
 
 int cache::init(wcx::arcfile * af)
@@ -256,8 +237,8 @@ int cache::init(wcx::arcfile * af)
 
   cache_item * item = add_file_internal(name.c_str(), content_size, file_attr);
   FIN_IF(!item, 0x44003300 | E_EREAD);
-  item->ctime = m_arcfile.get_ctime();
-  item->mtime = m_arcfile.get_mtime();
+  item->info.ctime = m_arcfile.get_ctime();
+  item->info.mtime = m_arcfile.get_mtime();
 
   hr = 0;
 
@@ -335,13 +316,13 @@ int cache::add_pax_info(tar::pax_decode & pax, UINT64 file_pos, int hdr_pack_siz
         } while (*++ws);
         cache_item * item = add_file_internal(m_add_name.c_str(), pax.m_info.size, pax.m_info.attr.FileAttributes);
         FIN_IF(!item, 0x45013500 | E_EOPEN);
-        item->ctime = pax.m_info.attr.CreationTime.QuadPart;
-        item->mtime = pax.m_info.attr.LastWriteTime.QuadPart;
-        item->pack_size = total_size;
-        item->pax.pos = file_pos;
-        item->pax.realsize = pax.m_info.realsize;
-        item->pax.hdr_p_size = hdr_pack_size;
-        item->pax.hdr_size = (UINT32)pax.get_header_size();
+        item->info.ctime = pax.m_info.attr.CreationTime.QuadPart;
+        item->info.mtime = pax.m_info.attr.LastWriteTime.QuadPart;
+        item->info.pack_size = total_size;
+        item->info.pax.pos = file_pos;
+        item->info.pax.realsize = pax.m_info.realsize;
+        item->info.pax.hdr_p_size = hdr_pack_size;
+        item->info.pax.hdr_size = (UINT32)pax.get_header_size();
       } while(0);
     }
   }

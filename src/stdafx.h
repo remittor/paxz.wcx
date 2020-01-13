@@ -41,8 +41,6 @@
 #include "bst\list.hpp"
 #include "utils.h"
 
-#include "paxz.h"
-
 #pragma comment (lib, "fake_ntdll.lib")
 #pragma comment (lib, "shlwapi.lib")
 
