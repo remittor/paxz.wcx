@@ -4,7 +4,7 @@
 
 namespace wcx {
 
-packer::packer(type ctype, wcx::cfg & cfg, int Flags, DWORD thread_id, tProcessDataProcW callback)
+packer::packer(ArcType ctype, wcx::cfg & cfg, int Flags, DWORD thread_id, tProcessDataProcW callback)
 {
   m_ctype = ctype;
   m_cfg = cfg;
@@ -40,10 +40,10 @@ void packer::reset_ctx(bool full_reset)
 {
   m_readed_size = 0;
   m_output_size = 0;
-  if (m_ctype == ctLz4) {
+  if (m_ctype == atPaxLz4 || m_ctype == atLz4) {
     m_lz4.ctx.reset();
   }
-  if (m_ctype == ctZstd) {
+  if (m_ctype == atPaxZstd || m_ctype == atZstd) {
     m_zst.ctx.reset(full_reset);
   }
 }
@@ -70,7 +70,7 @@ int packer::set_compression_level(int cpr_level)
     cpr_level = 9;     /* LZ4HC_CLEVEL_DEFAULT = 9; ZSTD_MAX_CLEVEL = 22; */ 
 
   m_cpr_level = cpr_level;
-  if (m_ctype == ctZstd && m_cpr_level >= 1) {
+  if ((m_ctype == atPaxZstd || m_ctype == atZstd) && m_cpr_level >= 1) {
     m_cpr_level += 1;  /* 9 -> 10 */
   }
   return 0;
@@ -86,7 +86,7 @@ int packer::frame_create(UINT64 total_size)
   FIN_IF(!m_outFile, -1);
   FIN_IF(m_cpr_level < 0, 0);
 
-  if (m_ctype == ctLz4) {
+  if (m_ctype == atPaxLz4) {
     LZ4F_preferences_t * prefs = &m_lz4.prefs;
     memset(prefs, 0, sizeof(LZ4F_preferences_t));
     prefs->compressionLevel = (m_cpr_level == 0) ? 1 : m_cpr_level;
@@ -112,7 +112,7 @@ int packer::frame_create(UINT64 total_size)
     FIN_IF(LZ4F_isError(sz), -12);
   }
 
-  if (m_ctype == ctZstd) { 
+  if (m_ctype == atPaxZstd) { 
     ZSTD_parameters * params = &m_zst.params;
     memset(params, 0, sizeof(ZSTD_parameters));
 
@@ -151,14 +151,14 @@ int packer::frame_add_data(PBYTE buf, size_t bufsize)
   size_t sz;
 
   if (m_cpr_level >= 0) {
-    if (m_ctype == ctLz4) {
+    if (m_ctype == atPaxLz4) {
       FIN_IF(m_lz4.prefs.autoFlush == 0, -21);
       FIN_IF(get_lz4_ctx() == NULL, -22);
       FIN_IF(bufsize > m_block_size, -23);
       sz = LZ4F_compressUpdate(get_lz4_ctx(), m_cpr_buf.data(), m_cpr_buf.size(), buf, bufsize, NULL);
       FIN_IF(LZ4F_isError(sz), -24);
     }
-    if (m_ctype == ctZstd) {
+    if (m_ctype == atPaxZstd) {
       FIN_IF(get_zst_ctx() == NULL, -22);
       FIN_IF(bufsize > m_block_size, -23);
       ZSTD_inBuffer  input  = { buf, bufsize, 0 };
@@ -191,11 +191,11 @@ int packer::frame_close()
 
   FIN_IF(m_cpr_level < 0, 0);
 
-  if (m_ctype == ctLz4) {
+  if (m_ctype == atPaxLz4) {
     sz = LZ4F_compressEnd(get_lz4_ctx(), m_cpr_buf.data(), m_cpr_buf.size(), NULL);
     FIN_IF(LZ4F_isError(sz), -31);
   }
-  if (m_ctype == ctZstd) {
+  if (m_ctype == atPaxZstd) {
     ZSTD_outBuffer output = { m_cpr_buf.data(), m_cpr_buf.size(), 0 };
     sz = ZSTD_compressStream2(get_zst_ctx(), &output, &emptyInput, ZSTD_e_end);
     FIN_IF(ZSTD_isError(sz), -31);

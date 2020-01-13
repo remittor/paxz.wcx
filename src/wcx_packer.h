@@ -13,14 +13,8 @@ namespace wcx {
 class packer
 {
 public:  
-  enum type {
-    ctUnknown = 0,
-    ctLz4     = 1,
-    ctZstd    = 2,
-  };
-
   packer() BST_DELETED;  // disable default constructor!
-  packer(type ctype, wcx::cfg & cfg, int Flags, DWORD thread_id, tProcessDataProcW callback);
+  packer(ArcType ctype, wcx::cfg & cfg, int Flags, DWORD thread_id, tProcessDataProcW callback);
   ~packer();
 
   void reset();
@@ -31,7 +25,7 @@ public:
   int  pack_files(LPCWSTR SubPath, LPCWSTR SrcPath, LPCWSTR AddList);
 
 private:
-  type      m_ctype;        // compressor type
+  ArcType   m_ctype;        // compressor type
   wcx::cfg  m_cfg;
   DWORD     m_thread_id;
   int       m_Flags;
