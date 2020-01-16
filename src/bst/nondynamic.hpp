@@ -1,28 +1,28 @@
 #pragma once
- 
+
+#include "core.hpp" 
 #include "noncopyable.hpp"
 
 namespace bst {
 
 class nondynamic: noncopyable
 {
-public:
-  nondynamic() {}
-  ~nondynamic() {}
-
 private:
+  // disallow operator new
+  static void * operator new(size_t);
+  static void * operator new[](size_t);
 
-  void * operator new(size_t size)
-  {
-    (void)size;
-    return 0;
-  }
+  // disallow operator delete
+  static void operator delete(void *) { };
+  static void operator delete[](void *) { };
 
-  void operator delete(void * p)
-  {
-    delete p;
-  }
+  // disallow address-of
+  const nondynamic* operator&() const;
+  /* */ nondynamic* operator&() /* */;
 
+  // disallow ->
+  const nondynamic* operator->() const;
+  /* */ nondynamic* operator->() /* */;
 };
 
 } /* namespace */
