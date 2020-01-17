@@ -53,7 +53,7 @@ class list
 public:
   list() : m_base()
   {
-    m_is_empty = true;
+    m_capacity = 0;
   }
   
   ~list()
@@ -67,7 +67,7 @@ public:
     while (!is_empty_internal()) {
       delete m_base.m_next;
     }
-    m_is_empty = true;
+    m_capacity = 0;
   }
   
   srw_lock & get_mutex()
@@ -75,9 +75,14 @@ public:
     return m_mutex;
   }
 
+  size_t get_capacity()
+  {
+    return m_capacity;
+  }
+
   bool is_empty()
   {
-    return m_is_empty;
+    return m_capacity == 0;
   }
 
   bool find(T * obj)
@@ -99,7 +104,7 @@ public:
   {
     if (obj) {
       scoped_write_lock write_lock(m_mutex);
-      return del_internal(obj);
+      return pop_internal(obj, true);
     }
     return false;
   }
@@ -108,7 +113,7 @@ public:
   {
     if (obj) {      
       scoped_write_lock write_lock(m_mutex);
-      return pop_internal(obj);
+      return pop_internal(obj, false);
     }
     return false;
   }
@@ -121,7 +126,7 @@ protected:
   
   list_node<T> * find_node(T * obj)
   {
-    if (obj && !is_empty_internal())
+    if (obj && !is_empty())
       for (list_node<T> * node = m_base.m_next; node != &m_base; node = node->m_next)
         if (node->m_obj == obj)
           return node;
@@ -131,35 +136,23 @@ protected:
   bool add_internal(T * obj)
   {
     if (!find_node(obj)) {
-      list_node<T> * node = new list_node<T>(m_base.m_prev, &m_base, obj);
+      list_node<T> * node = new(bst::nothrow) list_node<T>(m_base.m_prev, &m_base, obj);
       if (node) {
-        m_is_empty = false;
+        m_capacity++;
         return true;
       }
     }
     return false;
   }
-  
-  bool del_internal(T * obj)
-  {
-    list_node<T> * node = find_node(obj);
-    if (node) {
-      delete node;
-      if (is_empty_internal())
-        m_is_empty = true;
-      return true;
-    }
-    return false;
-  }
 
-  bool pop_internal(T * obj)
+  bool pop_internal(T * obj, bool free_obj)
   {
     list_node<T> * node = find_node(obj);
     if (node) {
-      node->m_obj = NULL;
+      if (!free_obj)
+        node->m_obj = NULL;
       delete node;
-      if (is_empty_internal())
-        m_is_empty = true;
+      m_capacity--;
       return true;
     }
     return false;
@@ -170,7 +163,7 @@ protected:
   
   list_node<T> m_base;
   srw_lock     m_mutex;
-  bool         m_is_empty;
+  size_t       m_capacity;
 };
 
 
@@ -228,12 +221,12 @@ public:
 
   bool del(T * obj)
   {
-    return m_write_lock ? m_list->del_internal(obj) : false;
+    return m_write_lock ? m_list->pop_internal(obj, true) : false;
   }
 
   bool pop(T * obj)
   {
-    return m_write_lock ? m_list->pop_internal(obj) : false;
+    return m_write_lock ? m_list->pop_internal(obj, false) : false;
   }
   
   T & operator*()
