@@ -94,34 +94,38 @@ int archive::list(tHeaderDataExW * hdr)
   if (!m_cache)
     return E_END_ARCHIVE;
 
-  //bst::scoped_read_lock lock(m_cache->get_mutex());
+  /* cache read lock already used! See plugin::open_file() */
   if (m_cache->get_status() != wcx::cache::stReady) {
     WLOGe(L"%S: ERROR: cache not ready!!! \"%s\" %d ", __func__, get_name(), m_cache->get_status());
     FIN(E_END_ARCHIVE);
   }
 
+  memset(hdr, 0, sizeof(*hdr));
+  if (!m_cenum.is_inited()) {
+    m_cache->find_directory(m_cenum, NULL);   /* reset m_cenum */
+  }
   while (ci = m_cache->get_next_file(m_cenum)) {
-    if (ci->deleted)
+    int plen = ci->get_path(hdr->FileName, _countof(hdr->FileName), L'\\');
+    if (plen == -8) {
+      plen = ci->get_path(NULL, 0, L'\\');
+      WLOGw(L"%S: <<<SKIP LONG FILE>>> name_len = %d  name: \"%s\"  ", __func__, plen, ci->name);
       continue;
-    if (ci->name_len < _countof(hdr->FileName))
-      break;    
-    WLOGw(L"%S: <<<SKIP LONG FILE>>> data_size = %I64d \"%s\"  ", __func__, ci->info.data_size, ci->name);
+    }
+    if (plen <= 0) {
+      WLOGe(L"%S: <<<SKIP FILE>>> ERROR = %d  name: \"%s\"  ", __func__, plen, ci->name);
+      continue;
+    }
+    break;
   }  
   if (!ci) {
     LOGi("%s: <<<END OF FILE LIST>>> (file count = %I64d) ", __func__, get_file_count());
-    m_cenum.reset();
+    m_cache->find_directory(m_cenum, NULL);   /* reset m_cenum */
     m_dst_dir.clear();
     FIN(E_END_ARCHIVE);
   }
 
-  WLOGd(L"%S: \"%s\" data_size = %I64d ", __func__, ci->name, ci->info.data_size);
-  FIN_IF(ci->name_len >= _countof(hdr->FileName), E_SMALL_BUF);
+  WLOGd(L"%S: \"%s\" data_size = %I64d ", __func__, hdr->FileName, ci->info.data_size);
 
-  memset(hdr, 0, sizeof(*hdr));
-  //wcsncpy(hdr->ArcName, a->ArcName, _countof(hdr->ArcName));
-  //hdr->ArcName[_countof(hdr->ArcName) - 1] = 0;
-  wcsncpy(hdr->FileName, ci->name, _countof(hdr->FileName));
-  hdr->FileName[_countof(hdr->FileName) - 1] = 0;
   hdr->FileAttr = get_tc_fileattr(ci->info.attr);
   hdr->FileTime = get_tc_filetime(ci->info.mtime);
   hdr->PackSize = ci->info.pack_size;
@@ -182,7 +186,6 @@ int archive::extract(int Operation, LPCWSTR DestPath, LPCWSTR DestName)
   }
   FIN_IF(!DestName, 0x100000 | E_EOPEN);
   FIN_IF(!m_cur_file, 0x101000 | E_NO_FILES);
-  FIN_IF(m_cur_file->deleted, 0x102000 | E_NO_FILES);
   size_t len = wcslen(DestName);
   FIN_IF(len <= 3, 0x103000 | E_ECREATE);
 
@@ -201,12 +204,11 @@ int archive::extract(int Operation, LPCWSTR DestPath, LPCWSTR DestName)
   }
   
   {
-    //bst::scoped_read_lock lock(m_cache->get_mutex());
+    /* cache read lock already used! See plugin::open_file() */
     if (m_cache->get_status() != wcx::cache::stReady) {
       WLOGe(L"%S: ERROR: cache not ready!!! \"%s\" %d ", __func__, get_name(), m_cache->get_status());
       FIN(0x121000 | E_EOPEN);
     }
-    FIN_IF(m_cur_file->deleted, 0x122000 | E_NO_FILES);
     
     m_cb.set_file_name(DestName);
     //ret = m_cb.tell_top_progressbar(1);

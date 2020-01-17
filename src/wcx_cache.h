@@ -4,66 +4,16 @@
 #include "wcx_arcfile.h"
 #include "bst/list.hpp"
 #include "tar.h"
+#include "wcx_filetree.h"
 
 namespace wcx {
 
-#define FILE_INFO_FLAG_DIR       0x01
-#define FILE_INFO_FLAG_EMPTY     0x02   // for skipping record 
-
 const size_t cache_max_items = 1024;
 
-class cache_enum
-{
-public:
-  cache_enum()
-  {
-    reset();
-  }
-  
-  ~cache_enum()
-  {
-    // nothing
-  }
-  
-  void reset()
-  {
-    m_block = NULL;
-    m_record = NULL;
-  }
-  
-  PBYTE m_block;
-  PBYTE m_record;  
-};
-
-#pragma pack(push, 1)
-
-struct cache_info {
-  struct {
-    UINT64   pos;
-    UINT32   hdr_p_size; // size of packed_header
-    UINT32   hdr_size;   // size of orig PAX header
-    UINT64   realsize;   // SCHILY.realsize
-  } pax;
-  UINT64     data_size; // orig content size
-  UINT64     pack_size; // total_size = packed_header + packed_content
-  DWORD      attr;      // windows file attributes
-  INT64      ctime;     // creation time
-  INT64      mtime;     // modification time
-};
-
-struct cache_item {
-  UINT32     item_size;
-  BOOLEAN    deleted;   // deleted item
-  BYTE       dummy;
-  BYTE       flags;
-  BYTE       type;
-  cache_info info;
-  UINT16     name_len;
-  WCHAR      name[1];
-};
-
-#pragma pack(pop)
-
+typedef wcx::TTreeElem  cache_item;
+typedef wcx::TElemInfo  cache_info;
+typedef wcx::TDirEnum   cache_dir;
+typedef wcx::TTreeEnum  cache_enum;
 
 class cache_list;  /* forward declaration */
 
@@ -71,8 +21,6 @@ class cache
 {
 public:
   friend cache_list;
-
-  static const int alloc_block_size = 1*1024*1024;
 
   enum status : char {
     stAlloc,
@@ -96,14 +44,20 @@ public:
 
   cache_item * add_file(LPCWSTR fullname, UINT64 size, BYTE type = 0);
   cache_item * add_file_internal(LPCWSTR fullname, UINT64 size, DWORD attr);
+
+  bool find_directory(cache_dir & cd, LPCWSTR dir, WCHAR delimiter = L'/');
+  cache_item * get_next(cache_dir & cd);
+
+  bool find_directory(cache_enum & ce, LPCWSTR dir, WCHAR delimiter = L'/', size_t max_depth = 0);
   cache_item * get_next_file(cache_enum & ce);
-  
+
   bst::srw_lock & get_mutex() { return m_mutex; }
   void read_lock()   { m_mutex.read_lock(); } 
   void read_unlock() { m_mutex.read_unlock(); } 
 
-  UINT64      get_capacity()   { return (UINT64)m_block_count * alloc_block_size; }
-  UINT64      get_file_count() { return m_file_count; }
+  UINT64      get_capacity()   { return m_ftree.get_capacity(); }
+  UINT64      get_num_elem()   { return m_ftree.get_num_elem(); }
+  UINT64      get_file_count() { return m_ftree.get_num_elem(); }
 
   arcfile &   get_arcfile()    { return m_arcfile; }
   ArcType     get_type()       { return m_arcfile.get_type(); }
@@ -122,10 +76,6 @@ public:
   int release();
 
 protected:  
-  static const size_t block_header_size = sizeof(LPVOID);
-  PBYTE  get_next_block(PBYTE cur_block);
-  void   set_next_block(PBYTE cur_block, PBYTE next_block);
-
   int add_pax_info(tar::pax_decode & pax, UINT64 file_pos, int hdr_pack_size, UINT64 total_size);
   int scan_pax_file(HANDLE hFile);
   int scan_paxlz4_file(HANDLE hFile);
@@ -141,32 +91,12 @@ protected:
   wcx::arcfile    m_arcfile;
   INT64           m_last_used_time;
   
-  PBYTE           m_root_blk;
-  size_t          m_block_count;
-  PBYTE           m_block;         // current block
-  size_t          m_block_pos;     // position for write
-  UINT64          m_item_count;
-  UINT64          m_file_count;
+  wcx::FileTree   m_ftree;
   
   bst::filepath   m_add_name;      // tmp buffer
   UINT64          m_end;           // end of file data (zero padding etc.)
 };
 
-
-inline
-PBYTE cache::get_next_block(PBYTE cur_block)
-{
-  return cur_block ? *(PBYTE *)cur_block : m_root_blk;
-}
-
-inline
-void cache::set_next_block(PBYTE cur_block, PBYTE next_block)
-{
-  LPVOID * lnk = (LPVOID *)cur_block;
-  *lnk = next_block;
-}
-
-// ================================================================================
 
 class cache_list
 {

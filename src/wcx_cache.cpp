@@ -9,12 +9,6 @@ cache::cache(cache_list & list, size_t index) : m_list(list)
 {
   m_index = index;
   m_status = stAlloc;
-  m_root_blk = NULL;
-  m_block = NULL;
-  m_block_pos = 0;
-  m_block_count = 0;
-  m_item_count = 0;
-  m_file_count = 0;
   m_last_used_time = 0;
 }
 
@@ -27,18 +21,7 @@ cache::~cache()
 void cache::clear()
 {
   m_status = stZombie;
-  if (m_root_blk) {
-    PBYTE cur_block = m_root_blk;
-    do {
-      PBYTE next_block = get_next_block(cur_block);
-      free(cur_block);
-      cur_block = next_block;
-    } while (cur_block);
-    m_root_blk = NULL;
-  }
-  m_block_count = 0;
-  m_item_count = 0;
-  m_file_count = 0;
+  m_ftree.clear();
   m_end = 0;
 }
 
@@ -60,78 +43,41 @@ cache_item * cache::add_file(LPCWSTR fullname, UINT64 size, BYTE type)
 
 cache_item * cache::add_file_internal(LPCWSTR fullname, UINT64 size, DWORD attr)
 {
-  int hr = 0;
-  cache_item * item = NULL;
-  size_t name_len, item_size;
-
   if (!fullname)
     return NULL;
-  name_len = wcslen(fullname);
+
+  size_t name_len = wcslen(fullname);
   if (!name_len)
     return NULL;
-  item_size = sizeof(cache_item) + name_len * sizeof(WCHAR);
-
-  if (m_block_count == 0 || m_block_pos + item_size + 32 >= alloc_block_size) {
-    PBYTE blk = (PBYTE)malloc(alloc_block_size);
-    if (!blk)
-      return NULL;
-    memset(blk, 0, alloc_block_size);
-    if (m_block_count == 0) {
-      m_root_blk = (PBYTE)blk;
-    } else {
-      set_next_block(m_block, blk);
-    }
-    m_block = (PBYTE)blk;
-    m_block_pos = block_header_size;
-    m_block_count++;
-  }
   
-  item = (cache_item *)(m_block + m_block_pos);
-  item->info.data_size = size;
-  item->info.attr = attr;
-  item->name_len = (UINT16)name_len;
-  memcpy(item->name, fullname, name_len * sizeof(WCHAR));
-  item->name[name_len] = 0;
-  item->item_size = (UINT32)item_size;
-  m_block_pos += item_size;
-  m_item_count++; 
-  m_file_count++;
-  return item;
+  cache_item * item = NULL;
+  int hr = m_ftree.add_file(fullname, attr, NULL, &item);
+  if (hr == 0 && item) {
+    item->info.data_size = size;
+    item->info.attr = attr;
+    return item;
+  }
+  return NULL;
+}
+
+bool cache::find_directory(cache_dir & cd, LPCWSTR dir, WCHAR delimiter)
+{
+  return m_ftree.find_directory(cd, dir, delimiter);
+}
+
+cache_item * cache::get_next(cache_dir & cd)
+{
+  return cd.get_next();
+}
+
+bool cache::find_directory(cache_enum & ce, LPCWSTR dir, WCHAR delimiter, size_t max_depth)
+{
+  return m_ftree.find_directory(ce, dir, delimiter, max_depth);
 }
 
 cache_item * cache::get_next_file(cache_enum & ce)
 {
-  cache_item * item = NULL;
-
-  bst::scoped_read_lock lock(m_mutex);
-
-  if (!m_root_blk || !m_item_count)
-    return NULL;    // empty
-
-  if (!ce.m_record) {
-    ce.m_block = m_root_blk;
-    ce.m_record = ce.m_block + block_header_size;
-    item = (cache_item *)ce.m_record;
-    if (!item->item_size)
-      return NULL;    // N/A
-  } else {
-    item = (cache_item *)ce.m_record;
-    item = (cache_item *)(ce.m_record + item->item_size);
-    if ((size_t)item - (size_t)ce.m_block >= alloc_block_size)
-      return NULL;    // error!
-    if (!item->item_size) {
-      PBYTE next_block = get_next_block(ce.m_block);
-      if (!next_block)
-        return NULL;  // EOL
-      item = (cache_item *)(next_block + block_header_size);
-      if (!item->item_size)
-        return NULL;    // N/A
-      ce.m_block = next_block;
-    }
-  }  
-  
-  ce.m_record = (PBYTE)item;
-  return item;
+  return ce.get_next();
 }
 
 int cache::update_release_time()
@@ -298,22 +244,22 @@ int cache::add_pax_info(tar::pax_decode & pax, UINT64 file_pos, int hdr_pack_siz
     if (is_file_dir) {
       size_t nlen = pax.get_name_len();
       LPCSTR name = pax.get_name();
-      do {
-        if (*name == '.' || *name == '/') { name++; nlen--; }
-        if (nlen == 0)
-          break;
-        if (*name == '/') { name++; nlen--; }
-        if (nlen == 0)
-          break;
+      if (nlen >= 2 && name[0] == '.' && name[1] == '/') {
+        nlen -= 2;
+        name += 2;
+      }
+      if (nlen && *name == '/') {
+        nlen--;
+        name++;
+      }
+      if (nlen && pax.m_type == tar::DIRECTORY && name[nlen-1] == '/') {
+        nlen--;
+      }
+      if (nlen) {
         int x = MultiByteToWideChar(CP_UTF8, 0, name, (int)nlen, m_add_name.data(), (int)m_add_name.capacity() - 32);
         FIN_IF(x <= 0, 0x45013300 | E_EOPEN);
         FIN_IF((size_t)x >= m_add_name.capacity() - 32, 0x45013400 | E_EOPEN);
         m_add_name.resize(x);
-        LPWSTR ws = m_add_name.data();
-        do {
-          if (*ws == L'/')
-            *ws = L'\\';
-        } while (*++ws);
         cache_item * item = add_file_internal(m_add_name.c_str(), pax.m_info.size, pax.m_info.attr.FileAttributes);
         FIN_IF(!item, 0x45013500 | E_EOPEN);
         item->info.ctime = pax.m_info.attr.CreationTime.QuadPart;
@@ -323,7 +269,7 @@ int cache::add_pax_info(tar::pax_decode & pax, UINT64 file_pos, int hdr_pack_siz
         item->info.pax.realsize = pax.m_info.realsize;
         item->info.pax.hdr_p_size = hdr_pack_size;
         item->info.pax.hdr_size = (UINT32)pax.get_header_size();
-      } while(0);
+      }
     }
   }
 
