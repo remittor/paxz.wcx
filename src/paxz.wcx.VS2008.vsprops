@@ -9,7 +9,7 @@
     Name="VCCLCompilerTool"
     Optimization="1"
     EnableIntrinsicFunctions="true"
-    AdditionalIncludeDirectories="win32common;..\extlibs;..\extlibs\zstd\lib;..\extlibs\zstd\lib\common;"
+    AdditionalIncludeDirectories="win32common;..\extlibs;..\extlibs\zstd\lib;..\extlibs\zstd\lib\common;..\extlibs\xxHash;"
   />
   <Tool
     Name="VCLinkerTool"

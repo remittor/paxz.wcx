@@ -6,3 +6,7 @@
 	path = extlibs/zstd
 	url = https://github.com/facebook/zstd.git
 	branch = master
+[submodule "extlibs/xxHash"]
+	path = extlibs/xxHash
+	url = https://github.com/Cyan4973/xxHash.git
+	branch = dev
