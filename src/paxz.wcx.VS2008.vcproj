@@ -541,10 +541,13 @@
       <File RelativePath=".\wcx_cache.h"></File>
       <File RelativePath=".\wcx_callback.cpp"></File>
       <File RelativePath=".\wcx_callback.h"></File>
+      <File RelativePath=".\wcx_filetree.cpp"></File>
+      <File RelativePath=".\wcx_filetree.h"></File>
       <File RelativePath=".\wcx_packer.cpp"></File>
       <File RelativePath=".\wcx_packer.h"></File>
       <File RelativePath=".\wcx_plugin.cpp"></File>
       <File RelativePath=".\wcx_plugin.h"></File>
+      <File RelativePath=".\wcx_simplemm.h"></File>
       <File RelativePath=".\wcx_version.h"></File>
       <File RelativePath=".\wcxhead.h"></File>
       <File RelativePath=".\winntapi.cpp"></File>
