@@ -703,8 +703,9 @@ int cache_list::create(const wcx::arcfile & af)
   FIN_IF(af.get_type() == atUnknown, -20012);
   index = get_free_item();
   FIN_IF(index == 0, 0);
-  cache = new wcx::cache(*this, index);
+  cache = new(bst::nothrow) wcx::cache(*this, index);
   FIN_IF(!cache, -20014);
+  cache->set_case_sensitive(true);
   cache_inited = cache->set_arcfile(af);
   FIN_IF(!cache_inited, -20015);
 

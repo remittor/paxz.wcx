@@ -42,6 +42,8 @@ public:
   status get_status() { return m_status; }
   void   set_status(status st) { m_status = st; }
 
+  void set_case_sensitive(bool is_case_sensitive) { m_ftree.set_case_sensitive(is_case_sensitive); }
+
   cache_item * add_file(LPCWSTR fullname, UINT64 size, BYTE type = 0);
   cache_item * add_file_internal(LPCWSTR fullname, UINT64 size, DWORD attr);
 
