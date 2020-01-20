@@ -53,7 +53,7 @@ protected:
   enum { is_buffer  = is_same<CharT, unsigned char>::value };
 
   BST_INLINE
-  void set_defaults()
+  void set_defaults() BST_NOEXCEPT
   {
     m_buf = nullptr;
     m_len = 0;
@@ -73,18 +73,18 @@ public:
     case_sensitive   = 1,    
   };
 
-  string_base()
+  string_base() BST_NOEXCEPT
   {
     set_defaults();
   }
 
-  explicit string_base(const CharT * s, size_t len = 0)
+  explicit string_base(const CharT * s, size_t len = 0) BST_NOEXCEPT
   {
     set_defaults();
     assign(s, len);
   }
   
-  explicit string_base(const fmt_string<CharT> fmt, ...)
+  explicit string_base(const fmt_string<CharT> fmt, ...) BST_NOEXCEPT
   {
     set_defaults();
     va_list argptr;
@@ -93,24 +93,24 @@ public:
     va_end(argptr);
   }
   
-  ~string_base()
+  ~string_base() BST_NOEXCEPT
   {
     destroy();
   }
 
   /* copy-constructor */
-  string_base(const string_base & str)
+  string_base(const string_base & str) BST_NOEXCEPT
   {
     set_defaults();
     assign(str.m_buf, str.m_len);
   }
 
-  bool is_dynamic()
+  bool is_dynamic() BST_NOEXCEPT
   {
     return m_isdynamic;
   }
   
-  error_code get_last_error(bool reset = true)
+  error_code get_last_error(bool reset = true) BST_NOEXCEPT
   {
     error_code err_code = m_last_error;
     if (reset)
@@ -118,12 +118,12 @@ public:
     return err_code;
   }
   
-  bool has_error(bool reset = true)
+  bool has_error(bool reset = true) BST_NOEXCEPT
   {
     return get_last_error(reset) != non_error;
   }
 
-  void clear()
+  void clear() BST_NOEXCEPT
   {
     m_len = 0;
     if (m_buf)
@@ -131,7 +131,7 @@ public:
     m_last_error = non_error;
   }
   
-  void destroy()
+  void destroy() BST_NOEXCEPT
   {
     clear();
     if (is_dynamic()) {
@@ -142,7 +142,7 @@ public:
     }
   }
 
-  static size_t get_length(const CharT * s)
+  static size_t get_length(const CharT * s) BST_NOEXCEPT
   {
     size_t len = 0;
     if (s)
@@ -151,7 +151,7 @@ public:
   }
   
   /* may be return npos */
-  size_t fix_length()
+  size_t fix_length() BST_NOEXCEPT
   {
     if (m_capacity && m_buf) {
       m_buf[m_capacity] = 0;
@@ -161,7 +161,7 @@ public:
     return npos;
   }
 
-  bool assign(const CharT * s, size_t len = 0)
+  bool assign(const CharT * s, size_t len = 0) BST_NOEXCEPT
   {
     if (!s) {
       destroy();
@@ -187,12 +187,12 @@ public:
     return true;
   }
 
-  bool assign(const string_base & str)
+  bool assign(const string_base & str) BST_NOEXCEPT
   {
     return assign(str.c_str(), str.length());
   }
   
-  bool reserve(size_t len)
+  bool reserve(size_t len) BST_NOEXCEPT
   {
     return set_capacity(len, true);
   }
@@ -288,18 +288,18 @@ public:
   }
 
   /* may be return npos */
-  size_t resize(size_t len)
+  size_t resize(size_t len) BST_NOEXCEPT
   {
     return resize_internal(len, false, 0);
   }
   
-  size_t resize(size_t len, CharT c)
+  size_t resize(size_t len, CharT c) BST_NOEXCEPT
   {
     return resize_internal(len, true, c);
   }
 
   /* may be return null */
-  CharT * expand(size_t add_len)
+  CharT * expand(size_t add_len) BST_NOEXCEPT
   {
     if (add_len == 0)
       return m_buf ? &m_buf[m_len] : nullptr;
@@ -310,7 +310,7 @@ public:
     return &m_buf[m_len];
   }
 
-  string_base & append(const CharT * s, size_t slen = 0)
+  string_base & append(const CharT * s, size_t slen = 0) BST_NOEXCEPT
   {
     if (!s)
       return *this;
@@ -335,13 +335,13 @@ public:
     return *this;  
   }
 
-  string_base & append(const string_base & str)
+  string_base & append(const string_base & str) BST_NOEXCEPT
   {
     return append(str.c_data(), str.length());
   }
   
   /* may be return npos */
-  size_t copy(CharT * s, size_t len, size_t pos = 0) const
+  size_t copy(CharT * s, size_t len, size_t pos = 0) const BST_NOEXCEPT
   {
     if (!s || !m_buf || pos >= m_len)
       return npos;
@@ -357,25 +357,25 @@ public:
     return len;
   }
   
-  string_base & operator= (const string_base & str)
+  string_base & operator= (const string_base & str) BST_NOEXCEPT
   {
     assign(str);
     return *this;
   }
   
-  string_base & operator= (const CharT * s)
+  string_base & operator= (const CharT * s) BST_NOEXCEPT
   {
     assign(s);
     return *this;
   }
   
-  string_base & operator+= (const string_base & str)
+  string_base & operator+= (const string_base & str) BST_NOEXCEPT
   {
     append(str);
     return *this;
   }
   
-  string_base & operator+= (const CharT * s)
+  string_base & operator+= (const CharT * s) BST_NOEXCEPT
   {
     append(s);
     return *this;
@@ -392,7 +392,7 @@ public:
   }
 
 protected:
-  size_t request_length(size_t new_len, size_t suffix = 0, bool save_data = true)
+  size_t request_length(size_t new_len, size_t suffix = 0, bool save_data = true) BST_NOEXCEPT
   {
     if (is_dynamic()) {
       if (!m_buf || new_len + suffix > m_capacity)
@@ -408,7 +408,7 @@ protected:
     return new_len;
   }
 
-  bool set_capacity(size_t new_capacity, bool save_data)
+  bool set_capacity(size_t new_capacity, bool save_data) BST_NOEXCEPT
   {
     if (is_dynamic() && new_capacity > m_capacity) {
       CharT * buf = reinterpret_cast<CharT *> (bst::malloc((new_capacity + 2) * sizeof(CharT)));
@@ -429,7 +429,7 @@ protected:
     return true;
   }
 
-  size_t resize_internal(size_t len, bool fill, CharT c)
+  size_t resize_internal(size_t len, bool fill, CharT c) BST_NOEXCEPT
   {
     if (len <= m_len) {
       if (!is_buffer && m_buf)
@@ -454,28 +454,28 @@ protected:
   }
 
 public:
-  size_t rfind(const string_base & str, size_t pos = npos) const
+  size_t rfind(const string_base & str, size_t pos = npos) const BST_NOEXCEPT
   {
     return rfind_internal(str.c_str(), str.length(), pos, case_sensitive);
   }
 
-  size_t rfind(const CharT * s, size_t pos = npos) const
+  size_t rfind(const CharT * s, size_t pos = npos) const BST_NOEXCEPT
   {
     return rfind_internal(s, 0, pos, case_sensitive);
   }
 
-  size_t rfind_i(const string_base & str, size_t pos = npos) const
+  size_t rfind_i(const string_base & str, size_t pos = npos) const BST_NOEXCEPT
   {
     return rfind_internal(str.c_str(), str.length(), pos, case_insensitive);
   }
 
-  size_t rfind_i(const CharT * s, size_t pos = npos) const
+  size_t rfind_i(const CharT * s, size_t pos = npos) const BST_NOEXCEPT
   {
     return rfind_internal(s, 0, pos, case_insensitive);
   }
 
 protected:
-  size_t rfind_internal(const CharT * s, size_t slen, size_t pos, char_case _case) const
+  size_t rfind_internal(const CharT * s, size_t slen, size_t pos, char_case _case) const BST_NOEXCEPT
   {
     if (is_buffer)
       return npos;
@@ -498,18 +498,18 @@ protected:
   }   
 
 public:
-  size_t rfind(const CharT c, size_t pos = npos) const
+  size_t rfind(const CharT c, size_t pos = npos) const BST_NOEXCEPT
   {
     return rfind_internal(c, pos, case_sensitive);
   }
 
-  size_t rfind_i(const CharT c, size_t pos = npos) const
+  size_t rfind_i(const CharT c, size_t pos = npos) const BST_NOEXCEPT
   {
     return rfind_internal(c, pos, case_insensitive);
   }
 
 protected:
-  size_t rfind_internal(const CharT c, size_t pos, char_case _case) const
+  size_t rfind_internal(const CharT c, size_t pos, char_case _case) const BST_NOEXCEPT
   {
     if (is_buffer)
       return npos;
@@ -535,28 +535,28 @@ protected:
   }   
 
 public:
-  size_t find(const string_base & str, size_t pos = npos) const
+  size_t find(const string_base & str, size_t pos = npos) const BST_NOEXCEPT
   {
     return find_internal(str.c_str(), str.length(), pos, case_sensitive);
   }
 
-  size_t find(const CharT * s, size_t pos = npos) const
+  size_t find(const CharT * s, size_t pos = npos) const BST_NOEXCEPT
   {
     return find_internal(s, 0, pos, case_sensitive);
   }
 
-  size_t find_i(const string_base & str, size_t pos = npos) const
+  size_t find_i(const string_base & str, size_t pos = npos) const BST_NOEXCEPT
   {
     return find_internal(str.c_str(), str.length(), pos, case_insensitive);
   }
 
-  size_t find_i(const CharT * s, size_t pos = npos) const
+  size_t find_i(const CharT * s, size_t pos = npos) const BST_NOEXCEPT
   {
     return find_internal(s, 0, pos, case_insensitive);
   }
 
 protected:
-  size_t find_internal(const CharT * s, size_t slen, size_t pos, char_case _case) const
+  size_t find_internal(const CharT * s, size_t slen, size_t pos, char_case _case) const BST_NOEXCEPT
   {
     if (is_buffer)
       return npos;
@@ -583,18 +583,18 @@ protected:
   }   
 
 public:
-  size_t find(const CharT c, size_t pos = 0) const
+  size_t find(const CharT c, size_t pos = 0) const BST_NOEXCEPT
   {
     return find_internal(c, pos, case_sensitive);
   }
 
-  size_t find_i(const CharT c, size_t pos = 0) const
+  size_t find_i(const CharT c, size_t pos = 0) const BST_NOEXCEPT
   {
     return find_internal(c, pos, case_insensitive);
   }
 
 protected:
-  size_t find_internal(const CharT c, size_t pos, char_case _case) const
+  size_t find_internal(const CharT c, size_t pos, char_case _case) const BST_NOEXCEPT
   {
     if (is_buffer)
       return npos;
@@ -618,18 +618,18 @@ protected:
   }
   
 public:
-  string_base & insert(size_t pos, const CharT * s, size_t n = 0)
+  string_base & insert(size_t pos, const CharT * s, size_t n = 0) BST_NOEXCEPT
   {
     return insert_internal(pos, s, n);
   }
 
-  string_base & insert(size_t pos, const string_base & str)
+  string_base & insert(size_t pos, const string_base & str) BST_NOEXCEPT
   {
     return insert_internal(pos, str.c_str, str.length());
   }
 
 protected:
-  string_base & insert_internal(size_t pos, const CharT * s, size_t slen)
+  string_base & insert_internal(size_t pos, const CharT * s, size_t slen) BST_NOEXCEPT
   {
     if (!is_buffer)
       if ((SSIZE_T)slen <= 0)
@@ -654,7 +654,7 @@ protected:
   } 
 
 public:
-  bool assign_fmt(const CharT * fmt, ...)
+  bool assign_fmt(const CharT * fmt, ...) BST_NOEXCEPT
   {
     va_list argptr;
     va_start(argptr, fmt);
@@ -665,7 +665,7 @@ public:
 
 protected:
   BST_NOINLINE
-  bool assign_fmt_internal(const CharT * fmt, va_list argptr)
+  bool assign_fmt_internal(const CharT * fmt, va_list argptr) BST_NOEXCEPT
   {
     BYTE buf[250];
     int sz;
@@ -678,7 +678,7 @@ protected:
   }
 
 public:
-  string_base & append(const fmt_string<CharT> fmt, ...)
+  string_base & append(const fmt_string<CharT> fmt, ...) BST_NOEXCEPT
   {
     va_list argptr;
     va_start(argptr, fmt);
@@ -687,7 +687,7 @@ public:
     return res;
   }
 
-  string_base & append_fmt(const CharT * fmt, ...)
+  string_base & append_fmt(const CharT * fmt, ...) BST_NOEXCEPT
   {
     va_list argptr;
     va_start(argptr, fmt);
@@ -698,7 +698,7 @@ public:
 
 protected:
   BST_NOINLINE
-  string_base & append_fmt_internal(const CharT * fmt, va_list argptr)
+  string_base & append_fmt_internal(const CharT * fmt, va_list argptr) BST_NOEXCEPT
   {
     BYTE buf[250];   // TODO: may be using _vscprintf ???
     int sz;
@@ -720,7 +720,7 @@ protected:
   CharT m_content[PreAllocLen + 2];
 
   BST_INLINE
-  void set_defaults()
+  void set_defaults() BST_NOEXCEPT
   {
     m_buf = m_content;
     m_len = 0;
@@ -732,18 +732,18 @@ protected:
   }
 
 public:
-  prealloc_string()
+  prealloc_string() BST_NOEXCEPT
   {
     set_defaults();
   }
 
-  explicit prealloc_string(const CharT * s, size_t len = 0)
+  explicit prealloc_string(const CharT * s, size_t len = 0) BST_NOEXCEPT
   {
     set_defaults();
     assign(s, len);
   }
   
-  explicit prealloc_string(const fmt_string<CharT> fmt, ...)
+  explicit prealloc_string(const fmt_string<CharT> fmt, ...) BST_NOEXCEPT
   {
     set_defaults();
     va_list argptr;
@@ -752,19 +752,19 @@ public:
     va_end(argptr);
   }
   
-  ~prealloc_string()
+  ~prealloc_string() BST_NOEXCEPT
   {
     //
   }
 
   /* copy-constructor */
-  prealloc_string(const string_base & str)
+  prealloc_string(const string_base & str) BST_NOEXCEPT
   {
     set_defaults();
     assign(str.c_data(), str.length());
   }
 
-  bool reserve(size_t len)
+  bool reserve(size_t len) BST_NOEXCEPT
   {
     return (len <= PreAllocLen) ? true : false;
   }

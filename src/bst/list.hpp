@@ -16,12 +16,12 @@ template <typename T>
 class list_node
 {
 public:
-  list_node() : m_obj(NULL)  // head node
+  list_node() BST_NOEXCEPT : m_obj(NULL)  // head node
   {
     m_prev = m_next = this;
   }
   
-  list_node(list_node * prev, list_node * next, T * obj)
+  list_node(list_node * prev, list_node * next, T * obj) BST_NOEXCEPT
     : m_prev(prev)
     , m_next(next)
     , m_obj(obj)
@@ -29,7 +29,7 @@ public:
     m_prev->m_next = m_next->m_prev = this;
   }
 
-  ~list_node()
+  ~list_node() BST_NOEXCEPT
   {
     m_prev->m_next = m_next;
     m_next->m_prev = m_prev;
@@ -51,17 +51,17 @@ template <typename T>
 class list
 {
 public:
-  list() : m_base()
+  list() BST_NOEXCEPT : m_base()
   {
     m_capacity = 0;
   }
   
-  ~list()
+  ~list() BST_NOEXCEPT
   { 
     clear();
   }
   
-  void clear()
+  void clear() BST_NOEXCEPT
   {
     scoped_write_lock lock(m_mutex);
     while (!is_empty_internal()) {
@@ -75,7 +75,7 @@ public:
     return m_mutex;
   }
 
-  size_t get_capacity()
+  size_t get_capacity() BST_NOEXCEPT
   {
     return m_capacity;
   }
@@ -85,13 +85,13 @@ public:
     return m_capacity == 0;
   }
 
-  bool find(T * obj)
+  bool find(T * obj) BST_NOEXCEPT
   {
     scoped_read_lock lock(m_mutex);
     return find_node(obj) ? true : false;
   }
   
-  bool add(T * obj)
+  bool add(T * obj) BST_NOEXCEPT
   {
     if (obj) {
       scoped_write_lock lock(m_mutex);
@@ -100,7 +100,7 @@ public:
     return false;
   }
 
-  bool del(T * obj)
+  bool del(T * obj) BST_NOEXCEPT
   {
     if (obj) {
       scoped_write_lock write_lock(m_mutex);
@@ -109,7 +109,7 @@ public:
     return false;
   }
 
-  bool pop(T * obj)
+  bool pop(T * obj) BST_NOEXCEPT
   {
     if (obj) {      
       scoped_write_lock write_lock(m_mutex);
@@ -124,7 +124,7 @@ protected:
     return (m_base.m_next == &m_base) && (m_base.m_prev == &m_base);
   }
   
-  list_node<T> * find_node(T * obj)
+  list_node<T> * find_node(T * obj) BST_NOEXCEPT
   {
     if (obj && !is_empty())
       for (list_node<T> * node = m_base.m_next; node != &m_base; node = node->m_next)
@@ -133,7 +133,7 @@ protected:
     return NULL;
   }
   
-  bool add_internal(T * obj)
+  bool add_internal(T * obj) BST_NOEXCEPT
   {
     if (!find_node(obj)) {
       list_node<T> * node = new(bst::nothrow) list_node<T>(m_base.m_prev, &m_base, obj);
@@ -145,7 +145,7 @@ protected:
     return false;
   }
 
-  bool pop_internal(T * obj, bool free_obj)
+  bool pop_internal(T * obj, bool free_obj) BST_NOEXCEPT
   {
     list_node<T> * node = find_node(obj);
     if (node) {
@@ -174,57 +174,57 @@ class list_enum : private noncopyable
 public:
   list_enum() BST_DELETED;  // disable default ctor
   
-  list_enum(list<T> & list, read_lock_t) : m_list(&list)
+  list_enum(list<T> & list, read_lock_t) BST_NOEXCEPT : m_list(&list)
   {
     m_write_lock = false;
     m_list->m_mutex.read_lock();
     reset();
   }
 
-  list_enum(list<T> & list, write_lock_t) : m_list(&list)
+  list_enum(list<T> & list, write_lock_t) BST_NOEXCEPT : m_list(&list)
   {
     m_write_lock = true;
     m_list->m_mutex.write_lock();
     reset();
   }
   
-  ~list_enum()
+  ~list_enum() BST_NOEXCEPT
   {
     m_list->m_mutex.unlock();
   }
 
-  list_node<T> * begin()
+  list_node<T> * begin() BST_NOEXCEPT
   {
     return &(m_list->m_base);
   }
 
-  void reset()
+  void reset() BST_NOEXCEPT
   {
     m_node = begin();
   }
   
-  T * get_next()
+  T * get_next() BST_NOEXCEPT
   {
     m_node = m_node->m_next;
     return (m_node == begin()) ? NULL : m_node->m_obj;
   }
   
-  bool find(T * obj)
+  bool find(T * obj) BST_NOEXCEPT
   {
     return m_list->find_node(obj) ? true : false;
   }
   
-  bool add(T * obj)
+  bool add(T * obj) BST_NOEXCEPT
   {
     return m_write_lock ? m_list->add_internal(obj) : false;
   }
 
-  bool del(T * obj)
+  bool del(T * obj) BST_NOEXCEPT
   {
     return m_write_lock ? m_list->pop_internal(obj, true) : false;
   }
 
-  bool pop(T * obj)
+  bool pop(T * obj) BST_NOEXCEPT
   {
     return m_write_lock ? m_list->pop_internal(obj, false) : false;
   }

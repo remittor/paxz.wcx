@@ -80,7 +80,7 @@ typedef struct _RTLP_SRWLOCK_WAITBLOCK
 
 
 BST_INLINE
-void ReleaseWaitBlockLockExclusive(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK FirstWaitBlock)
+void ReleaseWaitBlockLockExclusive(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK FirstWaitBlock) BST_NOEXCEPT
 {
   PRTLP_SRWLOCK_WAITBLOCK Next;
   LONG_PTR NewValue;
@@ -125,7 +125,7 @@ void ReleaseWaitBlockLockExclusive(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK
 }
 
 BST_INLINE
-void ReleaseWaitBlockLockLastShared(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK FirstWaitBlock)
+void ReleaseWaitBlockLockLastShared(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK FirstWaitBlock) BST_NOEXCEPT
 {
   PRTLP_SRWLOCK_WAITBLOCK Next;
   LONG_PTR NewValue;
@@ -150,14 +150,14 @@ void ReleaseWaitBlockLockLastShared(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOC
 
 
 BST_INLINE
-void ReleaseWaitBlockLock(IN OUT PRTL_SRWLOCK SRWLock)
+void ReleaseWaitBlockLock(IN OUT PRTL_SRWLOCK SRWLock) BST_NOEXCEPT
 {
   BST_InterlockedAndPointer(&SRWLock->Ptr, ~RTL_SRWLOCK_CONTENTION_LOCK);
 }
 
 
 BST_INLINE
-PRTLP_SRWLOCK_WAITBLOCK AcquireWaitBlockLock(PRTL_SRWLOCK SRWLock)
+PRTLP_SRWLOCK_WAITBLOCK AcquireWaitBlockLock(PRTL_SRWLOCK SRWLock) BST_NOEXCEPT
 {
   LONG_PTR PrevValue;
   PRTLP_SRWLOCK_WAITBLOCK WaitBlock;
@@ -206,7 +206,7 @@ void AcquireSRWLockExclusiveWait(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK W
 
 
 BST_INLINE
-void AcquireSRWLockSharedWait(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK FirstWait, PRTLP_SRWLOCK_SHARED_WAKE WakeChain)
+void AcquireSRWLockSharedWait(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK FirstWait, PRTLP_SRWLOCK_SHARED_WAKE WakeChain) BST_NOEXCEPT
 {
   if (FirstWait != NULL) {
     while (WakeChain->Wake == 0) {
@@ -239,14 +239,14 @@ void AcquireSRWLockSharedWait(PRTL_SRWLOCK SRWLock, PRTLP_SRWLOCK_WAITBLOCK Firs
 
 
 BST_INLINE
-void InitializeSRWLock(PRTL_SRWLOCK SRWLock)
+void InitializeSRWLock(PRTL_SRWLOCK SRWLock) BST_NOEXCEPT
 {
   SRWLock->Ptr = NULL;
 }
 
 
 BST_INLINE
-void AcquireSRWLockShared(PRTL_SRWLOCK SRWLock)
+void AcquireSRWLockShared(PRTL_SRWLOCK SRWLock) BST_NOEXCEPT
 {
   __declspec(align(16)) RTLP_SRWLOCK_WAITBLOCK StackWaitBlock;
   RTLP_SRWLOCK_SHARED_WAKE SharedWake;
@@ -394,7 +394,7 @@ void AcquireSRWLockShared(PRTL_SRWLOCK SRWLock)
 
 
 BST_INLINE 
-void ReleaseSRWLockShared(PRTL_SRWLOCK SRWLock)
+void ReleaseSRWLockShared(PRTL_SRWLOCK SRWLock) BST_NOEXCEPT
 {
   LONG_PTR CurrentValue, NewValue;
   PRTLP_SRWLOCK_WAITBLOCK WaitBlock;
@@ -440,7 +440,7 @@ void ReleaseSRWLockShared(PRTL_SRWLOCK SRWLock)
 
 
 BST_INLINE
-void AcquireSRWLockExclusive(PRTL_SRWLOCK SRWLock)
+void AcquireSRWLockExclusive(PRTL_SRWLOCK SRWLock) BST_NOEXCEPT
 {
   __declspec(align(16)) RTLP_SRWLOCK_WAITBLOCK StackWaitBlock;
   PRTLP_SRWLOCK_WAITBLOCK First, Last;
@@ -523,7 +523,7 @@ AddWaitBlock:
 
 
 BST_INLINE
-void ReleaseSRWLockExclusive(PRTL_SRWLOCK SRWLock)
+void ReleaseSRWLockExclusive(PRTL_SRWLOCK SRWLock) BST_NOEXCEPT
 {
   LONG_PTR CurrentValue, NewValue;
   PRTLP_SRWLOCK_WAITBLOCK WaitBlock;
@@ -569,37 +569,37 @@ void ReleaseSRWLockExclusive(PRTL_SRWLOCK SRWLock)
 
 // ================================================================================================
 
-srw_lock::srw_lock()
+srw_lock::srw_lock() BST_NOEXCEPT
 {
   bst::InitializeSRWLock(&m_lock);
 }
 
-srw_lock::~srw_lock()
+srw_lock::~srw_lock() BST_NOEXCEPT
 {
   unlock();
 }
 
-void srw_lock::lock_shared()
+void srw_lock::lock_shared() BST_NOEXCEPT
 {
   bst::AcquireSRWLockShared(&m_lock);
 }
 
-void srw_lock::unlock_shared()
+void srw_lock::unlock_shared() BST_NOEXCEPT
 {
   bst::ReleaseSRWLockShared(&m_lock);
 }
 
-void srw_lock::lock_exclusive()
+void srw_lock::lock_exclusive() BST_NOEXCEPT
 {
   bst::AcquireSRWLockExclusive(&m_lock);
 }
 
-void srw_lock::unlock_exclusive()
+void srw_lock::unlock_exclusive() BST_NOEXCEPT
 {
   bst::ReleaseSRWLockExclusive(&m_lock);
 }
  
-void srw_lock::unlock()
+void srw_lock::unlock() BST_NOEXCEPT
 {
   bst::ReleaseSRWLockExclusive(&m_lock);
   bst::ReleaseSRWLockShared(&m_lock);

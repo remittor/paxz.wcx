@@ -14,33 +14,33 @@ typedef struct _RTL_SRWLOCK {
 class srw_lock : private noncopyable
 {
 public:
-  srw_lock();
-  ~srw_lock();
+  srw_lock() BST_NOEXCEPT;
+  ~srw_lock() BST_NOEXCEPT;
 
-  void lock_shared();
-  void unlock_shared();
+  void lock_shared() BST_NOEXCEPT;
+  void unlock_shared() BST_NOEXCEPT;
   
-  void lock_exclusive();
-  void unlock_exclusive();
+  void lock_exclusive() BST_NOEXCEPT;
+  void unlock_exclusive() BST_NOEXCEPT;
   
-  void unlock();
+  void unlock() BST_NOEXCEPT;
 
-  void read_lock()
+  void read_lock() BST_NOEXCEPT
   {
     lock_shared();
   }
 
-  void read_unlock()
+  void read_unlock() BST_NOEXCEPT
   {
     unlock_shared();
   }
 
-  void write_lock()
+  void write_lock() BST_NOEXCEPT
   {
     lock_exclusive();
   }
 
-  void write_unlock()
+  void write_unlock() BST_NOEXCEPT
   {
     unlock_exclusive();
   }
@@ -64,27 +64,27 @@ class scoped_read_lock : private noncopyable
 public:
   scoped_read_lock() BST_DELETED;  // disable default ctor
 
-  explicit scoped_read_lock(srw_mutex & mutex) : m_mutex(mutex)
+  explicit scoped_read_lock(srw_mutex & mutex) BST_NOEXCEPT : m_mutex(mutex)
   {
     m_mutex.read_lock();
   }
   
-  ~scoped_read_lock()
+  ~scoped_read_lock() BST_NOEXCEPT
   {
     m_mutex.read_unlock();
   }
 
-  void lock()
+  void lock() BST_NOEXCEPT
   {
     m_mutex.read_lock();
   }
 
-  void unlock()
+  void unlock() BST_NOEXCEPT
   {
     m_mutex.read_unlock();
   }
 
-  srw_mutex & get_mutex()
+  srw_mutex & get_mutex() BST_NOEXCEPT
   {
     return m_mutex;
   }
@@ -99,27 +99,27 @@ class scoped_write_lock : private noncopyable
 public:
   scoped_write_lock() BST_DELETED;  // disable default ctor
 
-  explicit scoped_write_lock(srw_mutex & mutex) : m_mutex(mutex)
+  explicit scoped_write_lock(srw_mutex & mutex) BST_NOEXCEPT : m_mutex(mutex)
   {
     m_mutex.write_lock();
   }
 
-  ~scoped_write_lock()
+  ~scoped_write_lock() BST_NOEXCEPT
   {
     m_mutex.write_unlock();
   }
 
-  void lock()
+  void lock() BST_NOEXCEPT
   {
     m_mutex.write_lock();
   }
 
-  void unlock()
+  void unlock() BST_NOEXCEPT
   {
     m_mutex.write_unlock();
   }
 
-  srw_mutex & get_mutex()
+  srw_mutex & get_mutex() BST_NOEXCEPT
   {
     return m_mutex;
   }
