@@ -35,15 +35,17 @@ const nothrow_t nothrow = {};
 } /* namespace bst */
 
 
-inline void * operator new(size_t size, const bst::nothrow_t &) BST_NOEXCEPT
+BST_FORCEINLINE
+void * operator new(size_t size, const bst::nothrow_t &) BST_NOEXCEPT
 {
-  return ::malloc(size);
+  return bst::malloc(size);
 }
 
 /* without this delete operator MSVC output warning:
    no matching operator delete found; memory will not be freed if initialization throws an exception */
 
-inline void operator delete(void * ptr, const bst::nothrow_t &) BST_NOEXCEPT
+BST_FORCEINLINE
+void operator delete(void * ptr, const bst::nothrow_t &) BST_NOEXCEPT
 {
-  ::free(ptr);
+  bst::free(ptr);
 }
