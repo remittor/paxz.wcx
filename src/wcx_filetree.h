@@ -84,6 +84,7 @@ struct TTreeElem {
   TTreeElem * get_prev() noexcept;
   TTreeElem * get_next() noexcept { return next; }
   bool unlink() noexcept;
+  size_t get_size() noexcept { return sizeof(TTreeElem) + name_len * sizeof(WCHAR); }
 };
 
 #pragma pack(pop)

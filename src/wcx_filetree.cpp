@@ -181,6 +181,8 @@ void FileTree::destroy_elem(PTreeElem elem, bool total_destroy) noexcept
 {
   if (elem) {
     destroy_content(elem, total_destroy);
+    m_elem_count--;
+    m_capacity -= elem->get_size();
     if (!total_destroy) {
       elem->unlink();      /* remove all links to this elem */
     }
@@ -353,7 +355,7 @@ TTreeElem * FileTree::create_elem(PTreeElem owner, LPCWSTR name, size_t name_len
   elem->set_name(name, name_len);
   owner->push_subelem(elem);
   m_elem_count++;
-  m_capacity += elem_size;
+  m_capacity += elem->get_size();
   return elem;
 }
 
